@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -6,6 +6,8 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TVFocusGuideView,
+  useTVEventHandler,
   View,
 } from "react-native";
 import { usePathname, useRouter } from "expo-router";
@@ -26,6 +28,7 @@ const PHASE_TEXT: Record<BootPhase, string> = {
 interface FocusButtonProps {
   label: string;
   onPress: () => void;
+  onFocused?: () => void;
   primary?: boolean;
   preferredFocus?: boolean;
   icon?: React.ReactNode;
@@ -34,13 +37,23 @@ interface FocusButtonProps {
 /**
  * 电视端按钮：遥控器聚焦时放大并描边，触屏端点击即可。
  */
-const FocusButton = ({ label, onPress, primary, preferredFocus, icon }: FocusButtonProps) => {
+const FocusButton = ({
+  label,
+  onPress,
+  onFocused,
+  primary,
+  preferredFocus,
+  icon,
+}: FocusButtonProps) => {
   const [focused, setFocused] = useState(false);
   return (
     <Pressable
       focusable
       hasTVPreferredFocus={preferredFocus}
-      onFocus={() => setFocused(true)}
+      onFocus={() => {
+        setFocused(true);
+        onFocused?.();
+      }}
       onBlur={() => setFocused(false)}
       onPress={onPress}
       style={[
@@ -73,6 +86,48 @@ export default function BootGate() {
   const isBlocking = !dismissed && phase !== "ready";
   const isFailed = phase === "offline" || phase === "unconfigured";
 
+  // 电视遥控器兜底：焦点落在按钮上时按「确定」直接触发该按钮，
+  // 与 Pressable 的 onPress 通过时间窗去重，避免同一次按键执行两次。
+  const activeActionRef = useRef<() => void>(() => {});
+  const lastFireRef = useRef(0);
+  const fire = useCallback((action: () => void) => {
+    const now = Date.now();
+    if (now - lastFireRef.current < 350) return;
+    lastFireRef.current = now;
+    action();
+  }, []);
+
+  useTVEventHandler((event) => {
+    if (!Platform.isTV || !isBlocking || !isFailed) return;
+    if (event.eventType === "select") {
+      fire(activeActionRef.current);
+    }
+  });
+
+  const goSettings = useCallback(() => {
+    dismiss();
+    // 已经在设置页时不要再 push，避免路由栈里堆同一页
+    if (pathname !== "/settings") {
+      router.push("/settings");
+    }
+  }, [dismiss, pathname, router]);
+
+  const primaryAction = useCallback(() => {
+    if (phase === "unconfigured") {
+      goSettings();
+    } else {
+      retry();
+    }
+  }, [phase, goSettings, retry]);
+  const dismissAction = () => dismiss();
+
+  // 错误页出现时把默认动作指向主按钮，遥控器未见焦点时也能响应
+  useEffect(() => {
+    if (isFailed) {
+      activeActionRef.current = primaryAction;
+    }
+  }, [isFailed, primaryAction]);
+
   useEffect(() => {
     if (isBlocking) {
       setHidden(false);
@@ -90,13 +145,7 @@ export default function BootGate() {
 
   if (hidden) return null;
 
-  const goSettings = () => {
-    dismiss();
-    // 已经在设置页时不要再 push，避免路由栈里堆同一页
-    if (pathname !== "/settings") {
-      router.push("/settings");
-    }
-  };
+  const ActionsWrap: any = Platform.isTV ? TVFocusGuideView : View;
 
   return (
     <Animated.View
@@ -128,12 +177,15 @@ export default function BootGate() {
             <Text style={styles.attemptText}>已尝试 {attempt} 次仍未连接成功</Text>
           ) : null}
 
-          <View style={styles.actions}>
+          <ActionsWrap style={styles.actions} autoFocus>
             <FocusButton
               label={phase === "unconfigured" ? "去设置服务器" : "重新连接"}
               primary
               preferredFocus
-              onPress={phase === "unconfigured" ? goSettings : () => retry()}
+              onFocused={() => {
+                activeActionRef.current = primaryAction;
+              }}
+              onPress={() => fire(primaryAction)}
               icon={
                 phase === "unconfigured" ? (
                   <Settings size={17} color="#0b0d10" />
@@ -145,16 +197,22 @@ export default function BootGate() {
             {phase === "unconfigured" ? null : (
               <FocusButton
                 label="去检查服务器设置"
-                onPress={goSettings}
+                onFocused={() => {
+                  activeActionRef.current = goSettings;
+                }}
+                onPress={() => fire(goSettings)}
                 icon={<Settings size={17} color="#cfd6e0" />}
               />
             )}
             <FocusButton
               label="稍后再说"
-              onPress={dismiss}
+              onFocused={() => {
+                activeActionRef.current = dismissAction;
+              }}
+              onPress={() => fire(dismissAction)}
               icon={<SkipForward size={17} color="#98a2b3" />}
             />
-          </View>
+          </ActionsWrap>
 
           <Text style={styles.footerHint}>
             连接不成功时应用不会加载内容，请确认电视已联网且服务器地址正确。

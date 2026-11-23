@@ -34,6 +34,10 @@ export default function RootLayout() {
   const responsiveConfig = useResponsiveLayout();
   const bootPhase = useBootStore((state) => state.phase);
   const bootStart = useBootStore((state) => state.start);
+  const bootDismissed = useBootStore((state) => state.dismissed);
+  // 启动闸门显示期间把下面的页面从布局里摘掉：
+  // 否则电视端的焦点会落在被遮住的首页控件上，遥控器按「确定」没有任何反应。
+  const bootBlocking = !bootDismissed && bootPhase !== "ready";
 
   // 启动序列：读配置 -> 扫描账号 -> 连接服务器 -> 刷新账号
   // 连接失败会停在 BootGate 的错误页，不会带着空数据进入首页
@@ -86,13 +90,12 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <View style={styles.container}>
+        <View style={[styles.container, bootBlocking && styles.hidden]}>
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="detail" options={{ headerShown: false }} />
             {Platform.OS !== "web" && <Stack.Screen name="play" options={{ headerShown: false }} />}
             <Stack.Screen name="search" options={{ headerShown: false }} />
-            <Stack.Screen name="live" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ headerShown: false }} />
             <Stack.Screen name="favorites" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
@@ -110,5 +113,9 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  hidden: {
+    // display:none 会连同原生焦点一起移除，遥控器只能落在启动闸门的按钮上
+    display: "none",
   },
 });

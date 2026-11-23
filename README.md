@@ -7,9 +7,9 @@
 > 这是基于上游 [orion-lib/OrionTV](https://github.com/orion-lib/OrionTV) 的二次修改版本，
 > 主要改动：启动时扫描账号 → 连接服务器 → 校验并刷新 → 失败提示；仅保留 Android 平台。
 >
-> - 版本从 `1.0.0` 起算，改动明细见 [CHANGELOG.md](./CHANGELOG.md)
+> - 版本从 `1.0.0` 起算，当前 `1.0.1`，改动明细见 [CHANGELOG.md](./CHANGELOG.md)
 > - 构建环境与步骤见 [BUILD.md](./BUILD.md)
-> - 安装包在 [Releases](../../releases) 页面下载（arm64 / armv7 分开）
+> - 安装包在 [Releases](../../releases) 页面下载：优先用通用包（同时含 arm64-v8a 与 armeabi-v7a），也可按机型选分架构包
 >
 > 当前支持 Android 6.0 及以上。
 
