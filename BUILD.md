@@ -105,9 +105,39 @@ apksigner sign --ks android/app/debug.keystore \
 
 ```
 package: com.oriontv
-versionName: 1.0.0
-versionCode: 1
+versionName: 1.1.0
+versionCode: 3
 minSdkVersion: 23 (Android 6.0)
 targetSdkVersion: 34
 签名: CN=Android Debug（调试证书，仅侧载）
+```
+
+## 七、v1.1.0 双端构建（电视 32 位 / 手机 64 位）
+
+电视端和手机端使用同一份 JS，只在打包时指定不同 ABI，因此不需要两份原生工程：
+
+```sh
+# 电视端：仅 32 位
+cd android
+./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a
+cp app/build/outputs/apk/release/app-release.apk \
+   ../../OrionTV-TV-1.1.0-armeabi-v7a.apk
+
+# 手机端：仅 64 位（Gradle 会复用缓存，只需重编原生库）
+./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
+cp app/build/outputs/apk/release/app-release.apk \
+   ../../OrionTV-Phone-1.1.0-arm64-v8a.apk
+```
+
+由于每次只编一个 ABI，APK 内只包含该 ABI 的原生库，不再需要 `zip -d` 剔除其他架构，
+Gradle 自带的 v1/v2 签名在拷贝后依然有效；如需重签仍按第四节流程处理。
+
+`android/gradle.properties` 在 8GB 容器里的关键参数：
+
+```properties
+org.gradle.jvmargs=-Xmx2560m -XX:MaxMetaspaceSize=768m
+org.gradle.workers.max=2
+org.gradle.parallel=false
+kotlin.compiler.execution.strategy=in-process
+reactNativeArchitectures=armeabi-v7a
 ```

@@ -3,21 +3,33 @@ import { View, StyleSheet, Platform, ActivityIndicator } from "react-native";
 import { ThemedText } from "../ThemedText";
 import { StyledButton } from "../StyledButton";
 import { useUpdateStore } from "@/stores/updateStore";
-// import { UPDATE_CONFIG } from "@/constants/UpdateConfig";
 
+/**
+ * 远程更新
+ *
+ * - 从项目仓库的 version.json 读取最新版本
+ * - 电视端走 32 位渠道，手机端走 64 位渠道
+ * - 检查到新版本后可直接下载并拉起系统安装器
+ */
 export function UpdateSection() {
-  const { 
-    currentVersion, 
-    remoteVersion, 
-    updateAvailable, 
-    downloading, 
-    downloadProgress, 
+  const {
+    currentVersion,
+    remoteVersion,
+    updateAvailable,
+    releaseNotes,
+    channel,
+    downloading,
+    downloadProgress,
     checkForUpdate,
+    downloadAndInstall,
     isLatestVersion,
-    error
+    error,
   } = useUpdateStore();
 
   const [checking, setChecking] = React.useState(false);
+  const [installing, setInstalling] = React.useState(false);
+
+  const busy = checking || downloading || installing;
 
   const handleCheckUpdate = async () => {
     setChecking(true);
@@ -28,9 +40,29 @@ export function UpdateSection() {
     }
   };
 
+  const handleUpdateNow = async () => {
+    setInstalling(true);
+    try {
+      if (!updateAvailable) {
+        const hasUpdate = await checkForUpdate(false);
+        if (!hasUpdate) return;
+      }
+      await downloadAndInstall();
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  const channelLabel = channel === "tv" ? "电视版 · 32 位" : "手机版 · 64 位";
+
   return (
     <View style={styles.sectionContainer}>
-      <ThemedText style={styles.sectionTitle}>应用更新</ThemedText>
+      <View style={styles.titleRow}>
+        <ThemedText style={styles.sectionTitle}>远程更新</ThemedText>
+        <View style={styles.channelBadge}>
+          <ThemedText style={styles.channelText}>{channelLabel}</ThemedText>
+        </View>
+      </View>
 
       <View style={styles.row}>
         <ThemedText style={styles.label}>当前版本</ThemedText>
@@ -51,6 +83,13 @@ export function UpdateSection() {
         </View>
       )}
 
+      {updateAvailable && !!releaseNotes && (
+        <View style={styles.notesBox}>
+          <ThemedText style={styles.notesTitle}>更新内容</ThemedText>
+          <ThemedText style={styles.notesText}>{releaseNotes}</ThemedText>
+        </View>
+      )}
+
       {error && (
         <View style={styles.row}>
           <ThemedText style={styles.label}>检查结果</ThemedText>
@@ -66,20 +105,26 @@ export function UpdateSection() {
       )}
 
       <View style={styles.buttonContainer}>
-        <StyledButton onPress={handleCheckUpdate} disabled={checking || downloading} style={styles.button}>
-          {checking ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <ThemedText style={styles.buttonText}>检查更新</ThemedText>
-          )}
-        </StyledButton>
+        {updateAvailable ? (
+          <StyledButton onPress={handleUpdateNow} disabled={busy} style={styles.button}>
+            {busy ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <ThemedText style={styles.buttonText}>
+                {downloading ? `下载中 ${downloadProgress}%` : `更新到 v${remoteVersion}`}
+              </ThemedText>
+            )}
+          </StyledButton>
+        ) : (
+          <StyledButton onPress={handleCheckUpdate} disabled={busy} style={styles.button}>
+            {checking ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <ThemedText style={styles.buttonText}>检查更新</ThemedText>
+            )}
+          </StyledButton>
+        )}
       </View>
-
-      {/* {UPDATE_CONFIG.AUTO_CHECK && (
-        <ThemedText style={styles.hint}>
-          自动检查更新已开启，每{UPDATE_CONFIG.CHECK_INTERVAL / (60 * 60 * 1000)}小时检查一次
-        </ThemedText>
-      )} */}
     </View>
   );
 }
@@ -93,13 +138,32 @@ const styles = StyleSheet.create({
       android: "rgba(255, 255, 255, 0.05)",
       default: "transparent",
     }),
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+    paddingTop: 8,
   },
   sectionTitle: {
     fontSize: Platform.isTV ? 24 : 20,
     fontWeight: "bold",
-    marginBottom: 16,
-    paddingTop: 8,
+  },
+  channelBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(0, 122, 255, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 122, 255, 0.4)",
+  },
+  channelText: {
+    fontSize: Platform.isTV ? 14 : 12,
+    color: "#4da3ff",
   },
   row: {
     flexDirection: "row",
@@ -125,18 +189,37 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#ff6b6b",
     fontWeight: "500",
+    flex: 1,
+    textAlign: "right",
+    marginLeft: 12,
+  },
+  notesBox: {
+    marginTop: 4,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  },
+  notesTitle: {
+    fontSize: Platform.isTV ? 16 : 14,
+    color: "#bbb",
+    marginBottom: 6,
+  },
+  notesText: {
+    fontSize: Platform.isTV ? 15 : 13,
+    color: "#ddd",
+    lineHeight: Platform.isTV ? 24 : 20,
   },
   buttonContainer: {
     flexDirection: "row",
     gap: 12,
     marginTop: 16,
-    justifyContent: "center", // 居中对齐
+    justifyContent: "center",
     alignItems: "center",
   },
   button: {
     width: "90%",
     ...(Platform.isTV && {
-      // TV平台焦点样式
       borderWidth: 2,
       borderColor: "transparent",
     }),
@@ -145,11 +228,5 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: Platform.isTV ? 16 : 14,
     fontWeight: "500",
-  },
-  hint: {
-    fontSize: Platform.isTV ? 14 : 12,
-    color: "#666",
-    marginTop: 12,
-    textAlign: "center",
   },
 });

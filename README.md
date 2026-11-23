@@ -7,11 +7,41 @@
 > 这是基于上游 [orion-lib/OrionTV](https://github.com/orion-lib/OrionTV) 的二次修改版本，
 > 主要改动：启动时扫描账号 → 连接服务器 → 校验并刷新 → 失败提示；仅保留 Android 平台。
 >
-> - 版本从 `1.0.0` 起算，当前 `1.0.1`，改动明细见 [CHANGELOG.md](./CHANGELOG.md)
+> - 版本从 `1.0.0` 起算，改动明细见 [CHANGELOG.md](./CHANGELOG.md)
 > - 构建环境与步骤见 [BUILD.md](./BUILD.md)
-> - 安装包在 [Releases](../../releases) 页面下载：优先用通用包（同时含 arm64-v8a 与 armeabi-v7a），也可按机型选分架构包
+> - 安装包在 [Releases](../../releases) 页面下载：
+>   **电视端** `OrionTV-TV-<版本>-armeabi-v7a.apk`（32 位）；
+>   **手机端** `OrionTV-Phone-<版本>-arm64-v8a.apk`（64 位）
 >
 > 当前支持 Android 6.0 及以上。
+
+## 📱 双端说明
+
+同一套代码会在运行时识别设备形态，自动切换界面与更新渠道：
+
+| 端 | 架构 | 安装包 | 界面 | 更新渠道 |
+|---|---|---|---|---|
+| 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` |
+| 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` |
+
+远程管理（扫码输入）只在电视 / 平板端显示；手机端作为输入设备使用。
+
+## 🔄 远程更新
+
+应用会读取仓库根目录的 [`version.json`](./version.json) 检查新版本：
+
+```json
+{
+  "version": "1.1.0",
+  "channels": {
+    "tv": { "version": "1.1.0", "url": "...apk", "mirrors": ["..."] },
+    "phone": { "version": "1.1.0", "url": "...apk", "mirrors": ["..."] }
+  }
+}
+```
+
+设置 → 远程更新 可以手动检查；下载完成后直接拉起系统安装器。
+清单地址按 GitHub 直连 → ghfast → jsDelivr 回退，APK 下载同样支持镜像切换。
 
 ## ✨ 功能特性
 
@@ -89,16 +119,11 @@ yarn build
 
 ### Android 最低版本
 
-默认 `minSdkVersion = 21`（Android 5.0 Lollipop），由 `app.config.js` 注入。
-需要临时回退到官方下限（API 23 / Android 6.0）时：
+默认 `minSdkVersion = 23`（Android 6.0），由 `app.config.js` 注入。
 
-```sh
-ORION_MIN_SDK=23 yarn prebuild && yarn build
-```
-
-> 注意：React Native 0.74 与 Expo SDK 51 官方最低支持到 API 23，API 21 属于
-> 兼容层放行（见 `xml/AndroidManifest.xml` 的 `tools:overrideLibrary`），
-> 必须在真实 5.0/5.1 电视盒子上验证后再发布。
+> 注意：React Native 0.74 与 Expo SDK 51 预编译的 Hermes / fabricjni 原生库按 API 23 构建，
+> NDK 链接器拒绝以 21 为目标（`CXX1214`），因此 21 只能作为实验开关保留，
+> 无法产出可运行包。`ORION_MIN_SDK` 环境变量仍可用于实验。
 
 ## 使用
 

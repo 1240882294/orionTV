@@ -13,7 +13,7 @@ interface HttpRequest {
   body: string;
 }
 
-interface HttpResponse {
+export interface HttpResponse {
   statusCode: number;
   headers: { [key: string]: string };
   body: string;

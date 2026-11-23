@@ -12,10 +12,14 @@
 const DEFAULT_MIN_SDK = 23; // Android 6.0（RN 0.74 的实际下限）
 const COMPILE_SDK = 34;
 const TARGET_SDK = 34;
+const APP_VERSION = "1.1.0";
+const VERSION_CODE = 3;
 
 module.exports = ({ config }) => {
   const rawMinSdk = Number(process.env.ORION_MIN_SDK ?? DEFAULT_MIN_SDK);
   const minSdkVersion = Number.isFinite(rawMinSdk) ? rawMinSdk : DEFAULT_MIN_SDK;
+  const rawVersionCode = Number(process.env.ORION_VERSION_CODE ?? VERSION_CODE);
+  const versionCode = Number.isFinite(rawVersionCode) ? rawVersionCode : VERSION_CODE;
 
   // 覆盖 expo-build-properties 里的 Android 构建参数
   const plugins = (config.plugins || []).map((plugin) => {
@@ -49,8 +53,12 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
+    version: config.version ?? APP_VERSION,
     platforms: ["android"],
-    android,
+    android: {
+      ...android,
+      versionCode,
+    },
     plugins,
   };
 };

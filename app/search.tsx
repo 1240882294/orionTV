@@ -8,7 +8,6 @@ import { api, SearchResult } from "@/services/api";
 import { Search, QrCode } from "lucide-react-native";
 import { StyledButton } from "@/components/StyledButton";
 import { useRemoteControlStore } from "@/stores/remoteControlStore";
-import { RemoteControlModal } from "@/components/RemoteControlModal";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRouter } from "expo-router";
 import { Colors } from "@/constants/Colors";
@@ -160,7 +159,6 @@ export default function SearchScreen() {
           emptyMessage="输入关键词开始搜索"
         />
       )}
-      <RemoteControlModal />
     </>
   );
 

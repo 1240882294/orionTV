@@ -1,24 +1,54 @@
 // UpdateService.ts
 import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
-// import * as Device from 'expo-device';
 import Toast from 'react-native-toast-message';
 import { version as currentVersion } from '../package.json';
-import { UPDATE_CONFIG } from '../constants/UpdateConfig';
+import { UPDATE_CONFIG, getUpdateChannel, UpdateChannel } from '../constants/UpdateConfig';
 import Logger from '@/utils/Logger';
 import { Platform } from 'react-native';
 
 const logger = Logger.withTag('UpdateService');
 
-interface VersionInfo {
+interface ChannelInfo {
+  version?: string;
+  url?: string;
+  mirrors?: string[];
+  notes?: string;
+  abi?: string;
+  size?: number;
+}
+
+interface RemoteManifest {
+  version?: string;
+  notes?: string;
+  channels?: Partial<Record<UpdateChannel, ChannelInfo>>;
+}
+
+export interface VersionInfo {
   version: string;
   downloadUrl: string;
+  /** 备用下载地址（镜像），按顺序尝试 */
+  mirrors: string[];
+  /** 更新说明 */
+  notes: string;
+  /** 当前设备使用的渠道：tv（32 位）/ phone（64 位） */
+  channel: UpdateChannel;
 }
 
 /**
  * 只在 Android 平台使用的常量（iOS 不会走到下载/安装流程）
  */
 const ANDROID_MIME_TYPE = 'application/vnd.android.package-archive';
+
+const fetchWithTimeout = async (url: string, timeoutMs: number): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
 
 class UpdateService {
   private static instance: UpdateService;
@@ -30,43 +60,61 @@ class UpdateService {
   }
 
   /** --------------------------------------------------------------
-   *  1️⃣ 远程版本检查（保持不变，只是把 fetch 包装成 async/await）
+   *  1️⃣ 远程版本检查
+   *     依次尝试清单地址（GitHub 直连 -> 镜像 -> jsDelivr），
+   *     按当前设备渠道取对应安装包。
    * --------------------------------------------------------------- */
   async checkVersion(): Promise<VersionInfo> {
-    const maxRetries = 3;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const channel = getUpdateChannel();
+    let lastError: unknown = null;
+
+    for (const baseUrl of UPDATE_CONFIG.MANIFEST_URLS) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10_000);
-        const response = await fetch(UPDATE_CONFIG.GITHUB_RAW_URL, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
+        const separator = baseUrl.includes('?') ? '&' : '?';
+        const url = `${baseUrl}${separator}t=${Date.now()}`;
+        const response = await fetchWithTimeout(url, 10_000);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
-        const remotePackage = await response.json();
-        const remoteVersion = remotePackage.version as string;
+        const manifest = (await response.json()) as RemoteManifest;
+        const channelInfo: ChannelInfo = manifest?.channels?.[channel] ?? {};
+        const remoteVersion = channelInfo.version || manifest?.version;
+
+        if (!remoteVersion) {
+          throw new Error('更新清单缺少版本号');
+        }
+
+        const fallbackUrl = UPDATE_CONFIG.getDownloadUrl(remoteVersion, channel);
+        const downloadUrl = channelInfo.url || fallbackUrl;
+        const mirrored = UPDATE_CONFIG.DOWNLOAD_MIRRORS.map(prefix => `${prefix}${downloadUrl}`);
+
+        // 去重：清单自带镜像 + 通用镜像 + 直连兜底
+        const mirrors = [
+          ...(channelInfo.mirrors || []),
+          ...mirrored,
+          fallbackUrl,
+        ].filter((item, index, arr) => !!item && item !== downloadUrl && arr.indexOf(item) === index);
+
+        logger.info(`[Update] manifest=${baseUrl} channel=${channel} version=${remoteVersion}`);
         return {
           version: remoteVersion,
-          downloadUrl: UPDATE_CONFIG.getDownloadUrl(remoteVersion),
+          downloadUrl,
+          mirrors,
+          notes: channelInfo.notes || manifest?.notes || '',
+          channel,
         };
       } catch (e) {
-        logger.warn(`checkVersion attempt ${attempt}/${maxRetries}`, e);
-        if (attempt === maxRetries) {
-          Toast.show({
-            type: 'error',
-            text1: '检查更新失败',
-            text2: '无法获取版本信息，请检查网络',
-          });
-          throw e;
-        }
-        // 指数退避
-        await new Promise(r => setTimeout(r, 2_000 * attempt));
+        lastError = e;
+        logger.warn(`[Update] checkVersion failed on ${baseUrl}`, e);
       }
     }
-    // 这句永远走不到，仅为 TypeScript 报错
-    throw new Error('Unexpected');
+
+    Toast.show({
+      type: 'error',
+      text1: '检查更新失败',
+      text2: '无法获取版本信息，请检查网络',
+    });
+    throw lastError instanceof Error ? lastError : new Error('检查更新失败');
   }
 
   /** --------------------------------------------------------------
@@ -105,29 +153,33 @@ class UpdateService {
   }
 
   /** --------------------------------------------------------------
-   *  3️⃣ 下载 APK（使用 expo-file-system 的下载 API）
+   *  3️⃣ 下载 APK：主地址失败时自动切换镜像
    * --------------------------------------------------------------- */
   async downloadApk(
     url: string,
     onProgress?: (percent: number) => void,
+    mirrors: string[] = [],
   ): Promise<string> {
-    const maxRetries = 3;
     await this.cleanOldApkFiles();
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const candidates = [url, ...mirrors].filter(
+      (item, index, arr) => !!item && arr.indexOf(item) === index,
+    );
+
+    let lastError: unknown = null;
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      const candidate = candidates[i];
       try {
+        logger.info(`[Update] downloading (${i + 1}/${candidates.length}): ${candidate}`);
         const timestamp = Date.now();
-        const fileName = `OrionTV_v${timestamp}.apk`;
+        const fileName = `OrionTV_v${timestamp}_${i}.apk`;
         const fileUri = `${FileSystem.documentDirectory}${fileName}`;
 
-        // expo-file-system 把下载进度回调参数统一为 `{totalBytesWritten, totalBytesExpectedToWrite}`
         const downloadResumable = FileSystem.createDownloadResumable(
-          url,
+          candidate,
           fileUri,
-          {
-            // Android 需要在 AndroidManifest 中声明 INTERNET、WRITE_EXTERNAL_STORAGE (API 33+ 使用 MANAGE_EXTERNAL_STORAGE)
-            // 这里不使用系统下载管理器，因为我们想自己控制进度回调。
-          },
+          {},
           progress => {
             if (onProgress && progress.totalBytesExpectedToWrite) {
               const percent = Math.floor(
@@ -142,25 +194,29 @@ class UpdateService {
         if (result && result.uri) {
           logger.debug(`APK downloaded to ${result.uri}`);
           return result.uri;
-        } else {
-          throw new Error('Download failed: No URI available');
         }
+        throw new Error('Download failed: No URI available');
       } catch (e) {
-        logger.warn(`downloadApk attempt ${attempt}/${maxRetries}`, e);
-        if (attempt === maxRetries) {
-          Toast.show({
-            type: 'error',
-            text1: '下载失败',
-            text2: 'APK 下载出现错误，请检查网络',
-          });
-          throw e;
+        lastError = e;
+        logger.warn(`[Update] download failed: ${candidate}`, e);
+        // 删除可能残留的半截文件
+        try {
+          await FileSystem.deleteAsync(
+            `${FileSystem.documentDirectory}OrionTV_v${Date.now()}_${i}.apk`,
+            { idempotent: true },
+          );
+        } catch {
+          // ignore
         }
-        // 指数退避
-        await new Promise(r => setTimeout(r, 3_000 * attempt));
       }
     }
-    // 同上，理论不会到这里
-    throw new Error('Download failed');
+
+    Toast.show({
+      type: 'error',
+      text1: '下载失败',
+      text2: '所有下载地址均不可用，请检查网络后重试',
+    });
+    throw lastError instanceof Error ? lastError : new Error('Download failed');
   }
 
   /** --------------------------------------------------------------
@@ -184,16 +240,14 @@ class UpdateService {
       try {
         // FLAG_ACTIVITY_NEW_TASK = 0x10000000 (1)
         // FLAG_GRANT_READ_URI_PERMISSION = 0x00000010
-        // 老系统走 file://，不需要额外的 URI 授权标志
         const flags = sdkInt >= 24 ? 1 | 0x00000010 : 1;
 
         await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-          data: targetUri,           // API 24+ 用 content://，更老的用 file://
-          type: ANDROID_MIME_TYPE,   // application/vnd.android.package-archive
+          data: targetUri,
+          type: ANDROID_MIME_TYPE,
           flags,
         });
       } catch (e: any) {
-        // 统一错误提示
         if (e.message?.includes('Activity not found')) {
           Toast.show({
             type: 'error',
@@ -216,7 +270,6 @@ class UpdateService {
         throw e;
       }
     } else {
-      // iOS 设备不支持直接安装 APK
       Toast.show({
         type: 'error',
         text1: '安装失败',
@@ -227,7 +280,7 @@ class UpdateService {
   }
 
   /** --------------------------------------------------------------
-   *  5️⃣ 版本比对工具（保持原来的实现）
+   *  5️⃣ 版本比对工具
    * --------------------------------------------------------------- */
   compareVersions(v1: string, v2: string): number {
     const p1 = v1.split('.').map(Number);
@@ -240,9 +293,15 @@ class UpdateService {
     }
     return 0;
   }
+
   getCurrentVersion(): string {
     return currentVersion;
   }
+
+  getChannel(): UpdateChannel {
+    return getUpdateChannel();
+  }
+
   isUpdateAvailable(remoteVersion: string): boolean {
     return this.compareVersions(remoteVersion, currentVersion) > 0;
   }
