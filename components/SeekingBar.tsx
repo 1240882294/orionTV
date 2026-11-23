@@ -30,7 +30,7 @@ export const SeekingBar = () => {
   const currentPositionMillis = seekPosition * durationMillis;
 
   return (
-    <View style={styles.seekingContainer}>
+    <View style={styles.seekingContainer} pointerEvents="none">
       <Text style={styles.timeText}>
         {formatTime(currentPositionMillis)} / {formatTime(durationMillis)}
       </Text>
@@ -56,6 +56,8 @@ const styles = StyleSheet.create({
     left: "5%",
     right: "5%",
     alignItems: "center",
+    zIndex: 40,
+    elevation: 40,
   },
   timeText: {
     color: "white",

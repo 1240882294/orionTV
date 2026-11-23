@@ -12,9 +12,6 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useRemoteControlStore } from "@/stores/remoteControlStore";
 import LoginModal from "@/components/LoginModal";
 import { RemoteControlModal } from "@/components/RemoteControlModal";
-import { useUpdateStore, initUpdateStore } from "@/stores/updateStore";
-import { UpdateModal } from "@/components/UpdateModal";
-import { UPDATE_CONFIG } from "@/constants/UpdateConfig";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import useBootStore from "@/stores/bootStore";
 import BootGate from "@/components/BootGate";
@@ -32,7 +29,6 @@ export default function RootLayout() {
   });
   const { loadSettings, remoteInputEnabled } = useSettingsStore();
   const { startServer, stopServer } = useRemoteControlStore();
-  const { checkForUpdate, lastCheckTime } = useUpdateStore();
   const responsiveConfig = useResponsiveLayout();
   const bootPhase = useBootStore((state) => state.phase);
   const bootStart = useBootStore((state) => state.start);
@@ -59,7 +55,6 @@ export default function RootLayout() {
   useEffect(() => {
     const initializeApp = async () => {
       await loadSettings({ fetchConfig: false });
-      initUpdateStore(); // 初始化更新存储
       await bootStart();
     };
     initializeApp();
@@ -77,17 +72,6 @@ export default function RootLayout() {
       }
     }
   }, [loaded, error, bootSettled]);
-
-  // 检查更新
-  useEffect(() => {
-    if (loaded && UPDATE_CONFIG.AUTO_CHECK && Platform.OS === 'android') {
-      // 检查是否需要自动检查更新
-      const shouldCheck = Date.now() - lastCheckTime > UPDATE_CONFIG.CHECK_INTERVAL;
-      if (shouldCheck) {
-        checkForUpdate(true); // 静默检查
-      }
-    }
-  }, [loaded, lastCheckTime, checkForUpdate]);
 
   useEffect(() => {
     // 只有在非手机端才启动远程控制服务器
@@ -119,7 +103,6 @@ export default function RootLayout() {
         <Toast />
         <LoginModal />
         <RemoteControlModal />
-        <UpdateModal />
         <BootGate />
       </ThemeProvider>
     </SafeAreaProvider>

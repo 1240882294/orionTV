@@ -1,9 +1,21 @@
 import React, { useEffect, useRef, useCallback, memo, useMemo } from "react";
-import { StyleSheet, TouchableOpacity, BackHandler, AppState, AppStateStatus, View, Platform, PanResponder, useWindowDimensions, StatusBar } from "react-native";
+import {
+  StyleSheet,
+  BackHandler,
+  AppState,
+  AppStateStatus,
+  View,
+  Platform,
+  PanResponder,
+  useWindowDimensions,
+  StatusBar,
+  Pressable,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Video } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
 import * as ScreenOrientation from "expo-screen-orientation";
+import * as NavigationBar from "expo-navigation-bar";
 import { ThemedView } from "@/components/ThemedView";
 import { PlayerControls } from "@/components/PlayerControls";
 import { MobilePlayerControls } from "@/components/MobilePlayerControls";
@@ -11,7 +23,6 @@ import { EpisodeSelectionModal } from "@/components/EpisodeSelectionModal";
 import { SourceSelectionModal } from "@/components/SourceSelectionModal";
 import { SpeedSelectionModal } from "@/components/SpeedSelectionModal";
 import { SeekingBar } from "@/components/SeekingBar";
-// import { NextEpisodeOverlay } from "@/components/NextEpisodeOverlay";
 import VideoLoadingAnimation from "@/components/VideoLoadingAnimation";
 import useDetailStore from "@/stores/detailStore";
 import { useTVRemoteHandler } from "@/hooks/useTVRemoteHandler";
@@ -19,9 +30,9 @@ import Toast from "react-native-toast-message";
 import usePlayerStore, { selectCurrentEpisode } from "@/stores/playerStore";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { useVideoHandlers } from "@/hooks/useVideoHandlers";
-import Logger from '@/utils/Logger';
+import Logger from "@/utils/Logger";
 
-const logger = Logger.withTag('PlayScreen');
+const logger = Logger.withTag("PlayScreen");
 
 // 手势横向满屏滑动对应的时长（毫秒）—— 5 分钟，兼顾精度与跨度
 const SWIPE_FULL_WIDTH_MS = 5 * 60 * 1000;
@@ -43,36 +54,6 @@ const LoadingContainer = memo(
 );
 
 LoadingContainer.displayName = "LoadingContainer";
-
-// 移到组件外部避免重复创建
-const createResponsiveStyles = (deviceType: string) => {
-  const isMobile = deviceType === "mobile";
-  const isTablet = deviceType === "tablet";
-
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: "black",
-      // 移动端和平板端可能需要状态栏处理
-      ...(isMobile || isTablet ? { paddingTop: 0 } : {}),
-    },
-    videoContainer: {
-      ...StyleSheet.absoluteFillObject,
-      // 为触摸设备添加更多的交互区域
-      ...(isMobile || isTablet ? { zIndex: 1 } : {}),
-    },
-    videoPlayer: {
-      ...StyleSheet.absoluteFillObject,
-    },
-    loadingContainer: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: "rgba(0, 0, 0, 0.8)",
-      justifyContent: "center",
-      alignItems: "center",
-      zIndex: 10,
-    },
-  });
-};
 
 export default function PlayScreen() {
   const videoRef = useRef<Video>(null);
@@ -113,7 +94,6 @@ export default function PlayScreen() {
   const {
     isLoading,
     showControls,
-    // showNextEpisodeOverlay,
     initialPosition,
     introEndTime,
     playbackRate,
@@ -122,7 +102,6 @@ export default function PlayScreen() {
     handlePlaybackStatusUpdate,
     setShowControls,
     setIsFullscreen,
-    // setShowNextEpisodeOverlay,
     reset,
     loadVideo,
   } = usePlayerStore();
@@ -143,9 +122,6 @@ export default function PlayScreen() {
   // TV遥控器处理 - 总是调用hook，但根据设备类型决定是否使用结果
   const tvRemoteHandler = useTVRemoteHandler();
 
-  // 优化的动态样式 - 使用useMemo避免重复计算
-  const dynamicStyles = useMemo(() => createResponsiveStyles(deviceType), [deviceType]);
-
   // 手机端进入播放页默认显示控件
   useEffect(() => {
     if (isTouchDevice) {
@@ -158,6 +134,7 @@ export default function PlayScreen() {
     if (!isTouchDevice) return;
     if (position !== undefined) {
       setIsFullscreen(true);
+      setShowControls(true);
     }
     // 仅在进入页面时判定一次
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,11 +158,31 @@ export default function PlayScreen() {
     lock();
   }, [isFullscreen, isTVDevice]);
 
-  // 离开播放页恢复竖屏，避免影响其他页面
+  // 全屏时隐藏系统导航条，避免白色手势条压在进度条上
+  useEffect(() => {
+    if (isTVDevice || Platform.OS !== "android") return;
+
+    const apply = async () => {
+      try {
+        if (isFullscreen) {
+          await NavigationBar.setBehaviorAsync("overlay-swipe");
+          await NavigationBar.setVisibilityAsync("hidden");
+        } else {
+          await NavigationBar.setVisibilityAsync("visible");
+        }
+      } catch (error) {
+        logger.debug("Failed to toggle navigation bar:", error);
+      }
+    };
+    apply();
+  }, [isFullscreen, isTVDevice]);
+
+  // 离开播放页恢复竖屏与导航条，避免影响其他页面
   useEffect(() => {
     if (isTVDevice || Platform.OS !== "android") return;
     return () => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+      NavigationBar.setVisibilityAsync("visible").catch(() => {});
     };
   }, [isTVDevice]);
 
@@ -291,6 +288,7 @@ export default function PlayScreen() {
       // 手机端全屏时，先退出全屏
       if (isTouchDevice && isFullscreen) {
         setIsFullscreen(false);
+        setShowControls(true);
         return true;
       }
       if (showControls) {
@@ -330,47 +328,42 @@ export default function PlayScreen() {
   }
 
   return (
-    <ThemedView focusable style={dynamicStyles.container}>
+    <ThemedView focusable style={styles.container}>
       <StatusBar hidden={isTouchDevice && isFullscreen} barStyle="light-content" />
 
-      <View
-        style={dynamicStyles.videoContainer}
-        {...(isTouchDevice ? panResponder.panHandlers : {})}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={StyleSheet.absoluteFill}
-          onPress={onScreenPress}
-        >
-          {/* 条件渲染Video组件：只有在有有效URL时才渲染 */}
-          {currentEpisode?.url ? (
-            <Video ref={videoRef} style={dynamicStyles.videoPlayer} {...videoProps} />
-          ) : (
-            <LoadingContainer style={dynamicStyles.loadingContainer} currentEpisode={currentEpisode} />
-          )}
-
-          {showControls && isTVDevice && (
-            <PlayerControls showControls={showControls} setShowControls={setShowControls} />
-          )}
-
-          {/* 手机端控件显示时不叠加 SeekingBar，避免与底部进度条重叠 */}
-          {(!showControls || isTVDevice) && <SeekingBar />}
-
-          {/* 只在Video组件存在且正在加载时显示加载动画覆盖层 */}
-          {currentEpisode?.url && isLoading && (
-            <View style={dynamicStyles.loadingContainer}>
-              <VideoLoadingAnimation showProgressBar />
-            </View>
-          )}
-
-          {/* <NextEpisodeOverlay visible={showNextEpisodeOverlay} onCancel={() => setShowNextEpisodeOverlay(false)} /> */}
-        </TouchableOpacity>
+      {/* 1. 视频层：只负责画面，不接收触摸 */}
+      <View style={styles.videoLayer}>
+        {currentEpisode?.url ? (
+          <Video ref={videoRef} style={styles.videoPlayer} {...videoProps} />
+        ) : (
+          <LoadingContainer style={styles.loadingContainer} currentEpisode={currentEpisode} />
+        )}
       </View>
 
-      {/* 手机端自定义控件放在点击层之外，避免触摸冒泡触发切换 */}
-      {isTouchDevice && (
-        <MobilePlayerControls showControls={showControls} setShowControls={setShowControls} />
+      {/* 2. 手势 + 点击层：父级接横向滑动快进，子级 Pressable 负责切换控件显隐 */}
+      <View style={styles.tapLayer} {...(isTouchDevice ? panResponder.panHandlers : {})}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onScreenPress} />
+      </View>
+
+      {/* 3. 加载覆盖层 */}
+      {currentEpisode?.url && isLoading && (
+        <View style={styles.loadingOverlay} pointerEvents="none">
+          <VideoLoadingAnimation showProgressBar />
+        </View>
       )}
+
+      {/* 4. 控件层：电视端 */}
+      {isTVDevice && showControls && (
+        <View style={styles.tvControlsLayer} pointerEvents="box-none">
+          <PlayerControls showControls={showControls} setShowControls={setShowControls} />
+        </View>
+      )}
+
+      {/* 5. 控件层：手机端（组件内部自带 zIndex/elevation） */}
+      {isTouchDevice && <MobilePlayerControls showControls={showControls} setShowControls={setShowControls} />}
+
+      {/* 滑动预览条 */}
+      <SeekingBar />
 
       <EpisodeSelectionModal />
       <SourceSelectionModal />
@@ -378,3 +371,40 @@ export default function PlayScreen() {
     </ThemedView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "black",
+  },
+  videoLayer: {
+    ...StyleSheet.absoluteFillObject,
+    // 注意：这里不能设 zIndex，否则会把上面的控件层压住，导致按钮全部点不动
+    zIndex: 0,
+  },
+  videoPlayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  tapLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    backgroundColor: "transparent",
+  },
+  loadingContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 20,
+  },
+  tvControlsLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 25,
+  },
+});

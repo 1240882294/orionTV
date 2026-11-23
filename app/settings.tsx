@@ -12,7 +12,6 @@ import useBootStore from "@/stores/bootStore";
 import { useRemoteControlStore } from "@/stores/remoteControlStore";
 import { APIConfigSection } from "@/components/settings/APIConfigSection";
 import { RemoteInputSection } from "@/components/settings/RemoteInputSection";
-import { UpdateSection } from "@/components/settings/UpdateSection";
 // import { VideoSourceSection } from "@/components/settings/VideoSourceSection";
 import Toast from "react-native-toast-message";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
@@ -168,10 +167,6 @@ export default function SettingsScreen() {
         />
       ),
       key: "api",
-    },
-    Platform.OS === "android" && {
-      component: <UpdateSection />,
-      key: "update",
     },
   ] as const; // 把每个对象都当作字面量保留
   /** 这里得到的 sections 已经是 SectionItem[]（没有 false） */

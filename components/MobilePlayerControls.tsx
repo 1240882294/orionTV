@@ -6,7 +6,9 @@ import {
   Pressable,
   PanResponder,
   LayoutChangeEvent,
+  useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   ChevronLeft,
@@ -18,6 +20,7 @@ import {
   Gauge,
   Maximize,
   Minimize,
+  Tv,
 } from "lucide-react-native";
 import usePlayerStore from "@/stores/playerStore";
 import useDetailStore from "@/stores/detailStore";
@@ -48,7 +51,6 @@ const SeekSlider: React.FC<{
   const leftRef = useRef(0);
   const widthRef = useRef(0);
   const ratioRef = useRef(progress);
-  const draggingRef = useRef(false);
   const [trackWidth, setTrackWidth] = useState(0);
   const [localRatio, setLocalRatio] = useState<number | null>(null);
 
@@ -71,19 +73,16 @@ const SeekSlider: React.FC<{
       onMoveShouldSetPanResponder: () => true,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (evt) => {
-        draggingRef.current = true;
         updateFromX(evt.nativeEvent.pageX);
       },
       onPanResponderMove: (_evt, gesture) => {
         updateFromX(gesture.moveX);
       },
       onPanResponderRelease: () => {
-        draggingRef.current = false;
         setLocalRatio(null);
         onCommit(ratioRef.current);
       },
       onPanResponderTerminate: () => {
-        draggingRef.current = false;
         setLocalRatio(null);
         onCommit(ratioRef.current);
       },
@@ -134,6 +133,10 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
   setShowControls,
 }) => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+
   const {
     status,
     episodes,
@@ -148,6 +151,7 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
     commitSeek,
     setShowEpisodeModal,
     setShowSpeedModal,
+    setShowSourceModal,
     progressPosition,
   } = usePlayerStore();
 
@@ -200,15 +204,25 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
 
   if (!showControls) return null;
 
+  // 横屏时上方是刘海/挖孔，左右要避开；竖屏时上方是状态栏
+  const topInset = isLandscape ? Math.max(insets.top, 8) : insets.top + 8;
+  const bottomInset = Math.max(insets.bottom, isLandscape ? 10 : 16);
+  const sideInset = Math.max(insets.left, insets.right, isLandscape ? 20 : 12);
+
   return (
     <View style={styles.overlay} pointerEvents="box-none">
       {/* 顶部：返回 + 标题 + 全屏 */}
-      <View style={styles.topBar}>
-        <Pressable
-          onPress={guard(onBack)}
-          style={styles.iconButton}
-          hitSlop={10}
-        >
+      <View
+        style={[
+          styles.topBar,
+          {
+            paddingTop: topInset,
+            paddingLeft: sideInset,
+            paddingRight: sideInset,
+          },
+        ]}
+      >
+        <Pressable onPress={guard(onBack)} style={styles.iconButton} hitSlop={10}>
           <ChevronLeft color="white" size={26} />
         </Pressable>
         <View style={styles.titleWrap}>
@@ -221,54 +235,47 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
             </Text>
           ) : null}
         </View>
-        <Pressable
-          onPress={guard(() => toggleFullscreen())}
-          style={styles.iconButton}
-          hitSlop={10}
-        >
-          {isFullscreen ? (
-            <Minimize color="white" size={22} />
-          ) : (
-            <Maximize color="white" size={22} />
-          )}
+        <Pressable onPress={guard(() => toggleFullscreen())} style={styles.iconButton} hitSlop={10}>
+          {isFullscreen ? <Minimize color="white" size={22} /> : <Maximize color="white" size={22} />}
         </Pressable>
       </View>
 
       {/* 中间：快退 15s / 播放暂停 / 快进 15s */}
       <View style={styles.centerRow} pointerEvents="box-none">
-        <Pressable
-          onPress={guard(() => seekBy(-15000))}
-          style={styles.sideButton}
-          hitSlop={8}
-        >
-          <RotateCcw color="white" size={30} />
+        <Pressable onPress={guard(() => seekBy(-15000))} style={styles.sideButton} hitSlop={8}>
+          <RotateCcw color="white" size={isLandscape ? 26 : 30} />
           <Text style={styles.badgeText}>15</Text>
         </Pressable>
 
         <Pressable
           onPress={guard(() => togglePlayPause())}
-          style={styles.playButton}
+          style={[styles.playButton, isLandscape && styles.playButtonLandscape]}
           hitSlop={8}
         >
           {isPlaying ? (
-            <Pause color="white" size={38} fill="white" />
+            <Pause color="white" size={isLandscape ? 32 : 38} fill="white" />
           ) : (
-            <Play color="white" size={38} fill="white" />
+            <Play color="white" size={isLandscape ? 32 : 38} fill="white" />
           )}
         </Pressable>
 
-        <Pressable
-          onPress={guard(() => seekBy(15000))}
-          style={styles.sideButton}
-          hitSlop={8}
-        >
-          <RotateCw color="white" size={30} />
+        <Pressable onPress={guard(() => seekBy(15000))} style={styles.sideButton} hitSlop={8}>
+          <RotateCw color="white" size={isLandscape ? 26 : 30} />
           <Text style={styles.badgeText}>15</Text>
         </Pressable>
       </View>
 
-      {/* 底部：进度条 + 选集 / 倍速 / 全屏 */}
-      <View style={styles.bottomBar}>
+      {/* 底部：进度条 + 选集 / 倍速 / 线路 / 全屏 */}
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            paddingBottom: bottomInset,
+            paddingLeft: sideInset,
+            paddingRight: sideInset,
+          },
+        ]}
+      >
         <SeekSlider
           progress={progressPosition}
           duration={duration}
@@ -285,7 +292,7 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
             style={styles.actionButton}
             hitSlop={6}
           >
-            <List color="white" size={20} />
+            <List color="white" size={18} />
             <Text style={styles.actionText}>选集</Text>
           </Pressable>
 
@@ -297,22 +304,24 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
             style={styles.actionButton}
             hitSlop={6}
           >
-            <Gauge color="white" size={20} />
-            <Text style={styles.actionText}>
-              {playbackRate !== 1.0 ? `${playbackRate}x` : "倍速"}
-            </Text>
+            <Gauge color="white" size={18} />
+            <Text style={styles.actionText}>{playbackRate !== 1.0 ? `${playbackRate}x` : "倍速"}</Text>
           </Pressable>
 
           <Pressable
-            onPress={guard(() => toggleFullscreen())}
+            onPress={guard(() => {
+              setShowControls(true);
+              setShowSourceModal(true);
+            })}
             style={styles.actionButton}
             hitSlop={6}
           >
-            {isFullscreen ? (
-              <Minimize color="white" size={20} />
-            ) : (
-              <Maximize color="white" size={20} />
-            )}
+            <Tv color="white" size={18} />
+            <Text style={styles.actionText}>线路</Text>
+          </Pressable>
+
+          <Pressable onPress={guard(() => toggleFullscreen())} style={styles.actionButton} hitSlop={6}>
+            {isFullscreen ? <Minimize color="white" size={18} /> : <Maximize color="white" size={18} />}
             <Text style={styles.actionText}>{isFullscreen ? "退出全屏" : "全屏"}</Text>
           </Pressable>
         </View>
@@ -326,12 +335,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: "space-between",
     backgroundColor: "rgba(0,0,0,0.28)",
+    // 关键：必须压在视频层与点击层之上，否则触摸会被下层吃掉，表现为「按钮全部没反应」
+    zIndex: 30,
+    elevation: 30,
   },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingTop: 14,
     paddingBottom: 8,
   },
   iconButton: {
@@ -380,9 +390,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.35)",
   },
+  playButtonLandscape: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
   bottomBar: {
-    paddingHorizontal: 16,
-    paddingBottom: 18,
+    paddingTop: 6,
   },
   sliderRow: {
     flexDirection: "row",
@@ -423,19 +437,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    marginTop: 8,
+    marginTop: 6,
   },
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
     backgroundColor: "rgba(0,0,0,0.35)",
   },
   actionText: {
     color: "white",
-    fontSize: 13,
+    fontSize: 12,
   },
 });
