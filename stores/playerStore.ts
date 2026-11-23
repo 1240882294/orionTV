@@ -29,6 +29,7 @@ interface PlayerState {
   progressPosition: number;
   initialPosition: number;
   playbackRate: number;
+  isFullscreen: boolean;
   introEndTime?: number;
   outroStartTime?: number;
   setVideoRef: (ref: RefObject<Video>) => void;
@@ -50,6 +51,12 @@ interface PlayerState {
   setShowSpeedModal: (show: boolean) => void;
   setShowNextEpisodeOverlay: (show: boolean) => void;
   setPlaybackRate: (rate: number) => void;
+  setIsFullscreen: (fullscreen: boolean) => void;
+  toggleFullscreen: () => void;
+  beginSeek: () => void;
+  updateSeekPreview: (ratio: number) => void;
+  commitSeek: (ratio?: number) => Promise<void>;
+  seekBy: (deltaMillis: number) => Promise<void>;
   setIntroEndTime: () => void;
   setOutroStartTime: () => void;
   reset: () => void;
@@ -76,6 +83,7 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
   progressPosition: 0,
   initialPosition: 0,
   playbackRate: 1.0,
+  isFullscreen: false,
   introEndTime: undefined,
   outroStartTime: undefined,
   _seekTimeout: undefined,
@@ -451,6 +459,79 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
+  setIsFullscreen: (fullscreen) => set({ isFullscreen: fullscreen }),
+
+  toggleFullscreen: () => set({ isFullscreen: !get().isFullscreen }),
+
+  // 手势滑动开始：进入进度预览状态
+  beginSeek: () => {
+    const { status } = get();
+    if (!status?.isLoaded || !status.durationMillis) return;
+    if (get()._seekTimeout) {
+      clearTimeout(get()._seekTimeout);
+      set({ _seekTimeout: undefined });
+    }
+    set({
+      isSeeking: true,
+      seekPosition: status.positionMillis / status.durationMillis,
+    });
+  },
+
+  // 手势滑动中：只更新预览，不动播放器
+  updateSeekPreview: (ratio) => {
+    set({ isSeeking: true, seekPosition: Math.max(0, Math.min(1, ratio)) });
+  },
+
+  // 手势结束：真正跳转
+  commitSeek: async (ratio) => {
+    const { status, videoRef } = get();
+    if (!status?.isLoaded || !status.durationMillis) {
+      set({ isSeeking: false });
+      return;
+    }
+
+    const targetRatio = typeof ratio === "number" ? Math.max(0, Math.min(1, ratio)) : get().seekPosition;
+    const targetMillis = Math.max(0, Math.min(targetRatio * status.durationMillis, status.durationMillis));
+
+    set({ isSeeking: true, seekPosition: targetRatio });
+    try {
+      await videoRef?.current?.setPositionAsync(targetMillis);
+    } catch (error) {
+      logger.debug("Failed to commit seek:", error);
+    }
+
+    if (get()._seekTimeout) clearTimeout(get()._seekTimeout);
+    const timeoutId = setTimeout(() => set({ isSeeking: false }), 600);
+    set({ _seekTimeout: timeoutId });
+  },
+
+  // 快进/快退固定时长（毫秒）
+  seekBy: async (deltaMillis) => {
+    const { status, videoRef } = get();
+    if (!status?.isLoaded || !status.durationMillis) return;
+
+    const targetMillis = Math.max(
+      0,
+      Math.min(status.positionMillis + deltaMillis, status.durationMillis)
+    );
+
+    try {
+      await videoRef?.current?.setPositionAsync(targetMillis);
+    } catch (error) {
+      logger.debug("Failed to seek by offset:", error);
+    }
+
+    set({
+      isSeeking: true,
+      seekPosition: targetMillis / status.durationMillis,
+      progressPosition: targetMillis / status.durationMillis,
+    });
+
+    if (get()._seekTimeout) clearTimeout(get()._seekTimeout);
+    const timeoutId = setTimeout(() => set({ isSeeking: false }), 800);
+    set({ _seekTimeout: timeoutId });
+  },
+
   reset: () => {
     set({
       episodes: [],
@@ -464,6 +545,10 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
       showNextEpisodeOverlay: false,
       initialPosition: 0,
       playbackRate: 1.0,
+      isFullscreen: false,
+      isSeeking: false,
+      seekPosition: 0,
+      progressPosition: 0,
       introEndTime: undefined,
       outroStartTime: undefined,
     });

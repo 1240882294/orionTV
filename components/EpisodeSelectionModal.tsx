@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Modal, FlatList } from "react-native";
+import { View, Text, StyleSheet, Modal, FlatList, useWindowDimensions } from "react-native";
 import { StyledButton } from "./StyledButton";
 import usePlayerStore from "@/stores/playerStore";
 
@@ -7,6 +7,12 @@ interface EpisodeSelectionModalProps {}
 
 export const EpisodeSelectionModal: React.FC<EpisodeSelectionModalProps> = () => {
   const { showEpisodeModal, episodes, currentEpisodeIndex, playEpisode, setShowEpisodeModal } = usePlayerStore();
+  const { width: windowWidth } = useWindowDimensions();
+
+  // 手机端面板不超出屏宽，电视端保持 600
+  const panelWidth = Math.min(600, windowWidth * 0.94);
+  const isNarrow = panelWidth < 520;
+  const columns = isNarrow ? 4 : 5;
 
   const [episodeGroupSize] = useState(30);
   const [selectedEpisodeGroup, setSelectedEpisodeGroup] = useState(Math.floor(currentEpisodeIndex / episodeGroupSize));
@@ -23,7 +29,7 @@ export const EpisodeSelectionModal: React.FC<EpisodeSelectionModalProps> = () =>
   return (
     <Modal visible={showEpisodeModal} transparent={true} animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { width: panelWidth }]}>
           <Text style={styles.modalTitle}>选择剧集</Text>
 
           {episodes.length > episodeGroupSize && (
@@ -44,11 +50,12 @@ export const EpisodeSelectionModal: React.FC<EpisodeSelectionModalProps> = () =>
             </View>
           )}
           <FlatList
+            key={`episode-grid-${columns}`}
             data={episodes.slice(
               selectedEpisodeGroup * episodeGroupSize,
               (selectedEpisodeGroup + 1) * episodeGroupSize
             )}
-            numColumns={5}
+            numColumns={columns}
             contentContainerStyle={styles.episodeList}
             keyExtractor={(_, index) => `episode-${selectedEpisodeGroup * episodeGroupSize + index}`}
             renderItem={({ item, index }) => {
@@ -59,7 +66,7 @@ export const EpisodeSelectionModal: React.FC<EpisodeSelectionModalProps> = () =>
                   onPress={() => onSelectEpisode(absoluteIndex)}
                   isSelected={currentEpisodeIndex === absoluteIndex}
                   hasTVPreferredFocus={currentEpisodeIndex === absoluteIndex}
-                  style={styles.episodeItem}
+                  style={[styles.episodeItem, { width: isNarrow ? "23%" : "18%" }]}
                   textStyle={styles.episodeItemText}
                 />
               );

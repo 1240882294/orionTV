@@ -109,7 +109,8 @@ export const useVideoHandlers = ({
     onLoad,
     onLoadStart,
     onError,
-    useNativeControls: deviceType !== 'tv',
+    // 统一使用自定义控件：手机端需要横屏、滑动手势与底部选集/倍速，原生控件会抢占触摸
+    useNativeControls: false,
     shouldPlay: true,
   }), [
     currentEpisode?.url,

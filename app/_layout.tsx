@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { Platform, View, StyleSheet } from "react-native";
+import * as ScreenOrientation from "expo-screen-orientation";
 import Toast from "react-native-toast-message";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -39,6 +40,19 @@ export default function RootLayout() {
   // 启动闸门显示期间把下面的页面从布局里摘掉：
   // 否则电视端的焦点会落在被遮住的首页控件上，遥控器按「确定」没有任何反应。
   const bootBlocking = !bootDismissed && bootPhase !== "ready";
+
+  // 手机端固定竖屏：取消「跟随系统自动横竖屏」
+  // 只有播放页在用户点全屏时才切横屏，返回后由播放页恢复竖屏
+  // 注意：电视盒子不一定被识别为 Platform.isTV，这里还要排除宽度判定为 tv 的设备，
+  // 否则会把电视强制锁成竖屏。
+  useEffect(() => {
+    const isHandheld = Platform.OS === "android" && !Platform.isTV && responsiveConfig.deviceType !== "tv";
+    if (isHandheld) {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch((err) => {
+        logger.debug("Portrait lock failed", err);
+      });
+    }
+  }, []);
 
   // 启动序列：读配置 -> 扫描账号 -> 连接服务器 -> 刷新账号
   // 连接失败会停在 BootGate 的错误页，不会带着空数据进入首页
