@@ -622,7 +622,8 @@ export default function PlayScreen() {
         </View>
       )}
 
-      <EpisodeSelectionModal />
+      {/* 电视端选集走小屏右侧的播放列表，不再弹这个面板 */}
+      {!isTVDevice && <EpisodeSelectionModal />}
       <SourceSelectionModal />
       <SpeedSelectionModal />
     </ThemedView>

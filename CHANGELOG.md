@@ -3,6 +3,15 @@
 本项目基于上游 [orion-lib/OrionTV](https://github.com/orion-lib/OrionTV) 源码二次修改，
 版本号从 `1.0.0` 重新起算，与上游 1.3.14 的对应关系在每条记录里注明。
 
+## v1.3.1 — 2026-11-24（正式版）
+
+电视端播放页精简：移除「选择剧集」面板与底部工具栏的选集图标，选集统一走小屏右侧的播放列表。
+
+- `components/PlayerControls.tsx`：删掉 `List` 图标按钮与 `setShowEpisodeModal` 调用。
+- `app/play.tsx`：电视端不再渲染 `EpisodeSelectionModal`，手机端不受影响。
+- 大屏仍可用「下一集 / 上一集」按钮连续播放；要看全部集数点「缩小」进小屏，右侧即播放列表。
+- 版本号 `1.3.0` → `1.3.1`，`versionCode` 11 → 12。
+
 ## v1.3.0 — 2026-11-24（正式版）
 
 v1.2.0 之后的第一个正式版，把 test.1 ~ test.6 验证过的改动合并发布，并重新启用远程更新。

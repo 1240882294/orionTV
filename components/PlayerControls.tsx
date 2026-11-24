@@ -4,7 +4,6 @@ import {
   Pause,
   Play,
   SkipForward,
-  List,
   Tv,
   ArrowDownToDot,
   ArrowUpFromDot,
@@ -34,7 +33,6 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ showControls, se
     playbackRate,
     togglePlayPause,
     playEpisode,
-    setShowEpisodeModal,
     setShowSourceModal,
     setShowSpeedModal,
     setIntroEndTime,
@@ -122,10 +120,6 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ showControls, se
 
           <MediaButton onPress={setOutroStartTime} timeLabel={outroStartTime ? formatTime(outroStartTime) : undefined}>
             <ArrowUpFromDot color="white" size={24} />
-          </MediaButton>
-
-          <MediaButton onPress={() => setShowEpisodeModal(true)}>
-            <List color="white" size={24} />
           </MediaButton>
 
           <MediaButton onPress={() => setShowSpeedModal(true)} timeLabel={playbackRate !== 1.0 ? `${playbackRate}x` : undefined}>

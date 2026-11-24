@@ -1,25 +1,25 @@
 {
-  "version": "1.3.0",
-  "versionCode": 11,
+  "version": "1.3.1",
+  "versionCode": 12,
   "releasedAt": "2026-11-24",
-  "notes": "1. 新增广告过滤：自动跳过片头贴片与插播广告（可在设置里关闭）\n2. 电视端新增小屏模式：大屏可缩成小窗继续播，右侧看简介、换线路、选集\n3. 电视端快进/快退显示进度，长按改为预览后松手生效\n4. 小屏点画面或右上角「全屏」按键即可回到大屏\n5. 测速改为显示实际连接速度，播放前自动挑选最快线路\n6. 同一影片切换线路后只保留最新一条播放记录\n7. 恢复「远程更新」，可在设置里手动检查或收到新版本提示",
+  "notes": "1. 电视端播放页移除「选择剧集」面板与底部选集图标\n2. 选集改从「缩小」后小屏右侧的播放列表操作\n3. 其余功能与 1.3.0 一致",
   "channels": {
     "tv": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "abi": "armeabi-v7a",
-      "url": "https://github.com/1240882294/orionTV/releases/download/v1.3.0/OrionTV-TV-1.3.0-armeabi-v7a.apk",
+      "url": "https://github.com/1240882294/orionTV/releases/download/v1.3.1/OrionTV-TV-1.3.1-armeabi-v7a.apk",
       "mirrors": [
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/v1.3.0/OrionTV-TV-1.3.0-armeabi-v7a.apk",
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/v1.3.0/OrionTV-TV-1.3.0-armeabi-v7a.apk"
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/v1.3.1/OrionTV-TV-1.3.1-armeabi-v7a.apk",
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/v1.3.1/OrionTV-TV-1.3.1-armeabi-v7a.apk"
       ]
     },
     "phone": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "abi": "arm64-v8a",
-      "url": "https://github.com/1240882294/orionTV/releases/download/v1.3.0/OrionTV-Phone-1.3.0-arm64-v8a.apk",
+      "url": "https://github.com/1240882294/orionTV/releases/download/v1.3.1/OrionTV-Phone-1.3.1-arm64-v8a.apk",
       "mirrors": [
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/v1.3.0/OrionTV-Phone-1.3.0-arm64-v8a.apk",
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/v1.3.0/OrionTV-Phone-1.3.0-arm64-v8a.apk"
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/v1.3.1/OrionTV-Phone-1.3.1-arm64-v8a.apk",
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/v1.3.1/OrionTV-Phone-1.3.1-arm64-v8a.apk"
       ]
     }
   }
