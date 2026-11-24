@@ -261,7 +261,18 @@ export default function PlayScreen() {
     []
   );
 
+  // 离开播放页时统一清理，避免准备流程重跑时把播放状态清掉
+  useEffect(() => {
+    return () => {
+      logger.info(`[PERF] PlayScreen unmounting - calling reset()`);
+      reset();
+    };
+  }, [reset]);
+
   // 进入播放页：先拿线路 -> 测速挑最优 -> 再加载视频
+  // 用路由参数做 key，避免「写回选中的源」触发 effect 重入、反复测速
+  const prepareKey = `${title ?? ""}|${id ?? ""}|${episodeIndex}|${position ?? ""}|${sourceStr ?? ""}`;
+
   useEffect(() => {
     let cancelled = false;
     setVideoRef(videoRef);
@@ -290,6 +301,7 @@ export default function PlayScreen() {
 
       const candidates =
         state.searchResults.length > 0 ? state.searchResults : state.detail ? [state.detail] : [];
+      const preferredSource = sourceStr || state.detail?.source || source;
 
       if (candidates.length === 0) {
         logger.warn("[PREP] No candidate sources, load with given params");
@@ -318,7 +330,7 @@ export default function PlayScreen() {
           totalTimeoutMs: PREPARE_TIMEOUT_MS,
           // 用户选的线路已经够快就不用等剩下的源，早点开播
           shouldStop: (results) =>
-            !!source && speedOf(results[source]) >= GOOD_ENOUGH_BPS,
+            !!preferredSource && speedOf(results[preferredSource]) >= GOOD_ENOUGH_BPS,
         }
       );
       if (cancelled) return;
@@ -328,7 +340,7 @@ export default function PlayScreen() {
         .filter((entry) => entry.bps > 0)
         .sort((a, b) => b.bps - a.bps);
 
-      const preferred = candidates.find((item) => item.source === source);
+      const preferred = candidates.find((item) => item.source === preferredSource);
       const preferredBps = preferred ? speedOf(speeds[preferred.source]) : 0;
 
       let chosen = preferred ?? candidates[0];
@@ -337,7 +349,7 @@ export default function PlayScreen() {
         // 用户明确选了线路，且速度不低于最快线路的一半，就尊重用户选择
         const keepPreferred = !!preferred && preferredBps > 0 && preferredBps * 2 >= fastest.bps;
         chosen = keepPreferred && preferred ? preferred : fastest.item;
-        if (chosen.source !== (preferred?.source ?? "")) {
+        if (chosen.source !== preferredSource) {
           logger.info(
             `[PREP] Switch to faster source: ${chosen.source_name} (${Math.round(
               speedOf(speeds[chosen.source]) / 1024
@@ -378,11 +390,9 @@ export default function PlayScreen() {
 
     return () => {
       cancelled = true;
-      logger.info(`[PERF] PlayScreen unmounting - calling reset()`);
-      reset(); // Reset state when component unmounts
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [episodeIndex, source, position, id, title]);
+  }, [prepareKey]);
 
   // 优化的屏幕点击处理
   const onScreenPress = useCallback(() => {
