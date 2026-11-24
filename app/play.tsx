@@ -1,17 +1,20 @@
-import React, { useEffect, useRef, useCallback, memo, useMemo } from "react";
+import React, { useEffect, useRef, useCallback, memo, useMemo, useState } from "react";
 import {
   StyleSheet,
   BackHandler,
   AppState,
   AppStateStatus,
   View,
+  Text,
   Platform,
   PanResponder,
   useWindowDimensions,
   StatusBar,
   Pressable,
+  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Video } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -19,6 +22,11 @@ import * as NavigationBar from "expo-navigation-bar";
 import { ThemedView } from "@/components/ThemedView";
 import { PlayerControls } from "@/components/PlayerControls";
 import { MobilePlayerControls } from "@/components/MobilePlayerControls";
+import {
+  MobilePlayerInfoPanel,
+  MOBILE_PLAYER_HEADER_HEIGHT,
+  getMobileVideoHeight,
+} from "@/components/MobilePlayerInfoPanel";
 import { EpisodeSelectionModal } from "@/components/EpisodeSelectionModal";
 import { SourceSelectionModal } from "@/components/SourceSelectionModal";
 import { SpeedSelectionModal } from "@/components/SpeedSelectionModal";
@@ -30,12 +38,18 @@ import Toast from "react-native-toast-message";
 import usePlayerStore, { selectCurrentEpisode } from "@/stores/playerStore";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { useVideoHandlers } from "@/hooks/useVideoHandlers";
+import { testSourcesSpeed, speedOf } from "@/services/sourceSpeedTest";
 import Logger from "@/utils/Logger";
 
 const logger = Logger.withTag("PlayScreen");
 
 // 手势横向满屏滑动对应的时长（毫秒）—— 5 分钟，兼顾精度与跨度
 const SWIPE_FULL_WIDTH_MS = 5 * 60 * 1000;
+
+/** 播放前测速的整体等待上限：再慢也要先播起来 */
+const PREPARE_TIMEOUT_MS = 8000;
+/** 用户选的线路已经够快时提前结束测速 */
+const GOOD_ENOUGH_BPS = 1024 * 1024;
 
 // 优化的加载动画组件
 const LoadingContainer = memo(
@@ -58,6 +72,7 @@ LoadingContainer.displayName = "LoadingContainer";
 export default function PlayScreen() {
   const videoRef = useRef<Video>(null);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   useKeepAwake();
 
   // 响应式布局配置
@@ -106,6 +121,13 @@ export default function PlayScreen() {
     loadVideo,
   } = usePlayerStore();
   const currentEpisode = usePlayerStore(selectCurrentEpisode);
+
+  // 播放前准备（获取线路 + 测速）
+  const [preparing, setPreparing] = useState(true);
+  const [prepareLabel, setPrepareLabel] = useState("正在准备播放…");
+  const [prepareDone, setPrepareDone] = useState(0);
+  const [prepareTotal, setPrepareTotal] = useState(0);
+  const [prepareName, setPrepareName] = useState("");
 
   // 使用Video事件处理hook
   const { videoProps } = useVideoHandlers({
@@ -239,26 +261,128 @@ export default function PlayScreen() {
     []
   );
 
+  // 进入播放页：先拿线路 -> 测速挑最优 -> 再加载视频
   useEffect(() => {
-    const perfStart = performance.now();
-    logger.info(`[PERF] PlayScreen useEffect START - source: ${source}, id: ${id}, title: ${title}`);
-
+    let cancelled = false;
     setVideoRef(videoRef);
-    if (source && id && title) {
-      logger.info(`[PERF] Calling loadVideo with episodeIndex: ${episodeIndex}, position: ${position}`);
-      loadVideo({ source, id, episodeIndex, position, title });
-    } else {
-      logger.info(`[PERF] Missing required params - source: ${!!source}, id: ${!!id}, title: ${!!title}`);
-    }
+    setPreparing(true);
+    setPrepareLabel("正在准备播放…");
+    setPrepareDone(0);
+    setPrepareTotal(0);
+    setPrepareName("");
 
-    const perfEnd = performance.now();
-    logger.info(`[PERF] PlayScreen useEffect END - took ${(perfEnd - perfStart).toFixed(2)}ms`);
+    const prepare = async () => {
+      if (!source || !id || !title) {
+        logger.info(`[PREP] Missing params - source: ${!!source}, id: ${!!id}, title: ${!!title}`);
+        if (!cancelled) setPreparing(false);
+        return;
+      }
+
+      // 1. 确保剧集数据可用
+      let state = useDetailStore.getState();
+      const needInit = !state.detail || state.detail.title !== title || state.searchResults.length === 0;
+      if (needInit) {
+        setPrepareLabel("正在获取线路…");
+        await state.init(title, source, id);
+        if (cancelled) return;
+        state = useDetailStore.getState();
+      }
+
+      const candidates =
+        state.searchResults.length > 0 ? state.searchResults : state.detail ? [state.detail] : [];
+
+      if (candidates.length === 0) {
+        logger.warn("[PREP] No candidate sources, load with given params");
+        if (!cancelled) setPreparing(false);
+        loadVideo({ source, id, episodeIndex, position, title });
+        return;
+      }
+
+      // 2. 测速挑最优线路
+      setPrepareLabel("正在测速 · 正在挑选最优线路");
+      setPrepareTotal(candidates.length);
+      setPrepareDone(0);
+
+      const speeds = await testSourcesSpeed(
+        candidates,
+        title,
+        (result, done) => {
+          if (cancelled) return;
+          setPrepareDone(done);
+          if (result.ok) {
+            const matched = candidates.find((item) => item.source === result.source);
+            setPrepareName(matched?.source_name || result.source);
+          }
+        },
+        {
+          totalTimeoutMs: PREPARE_TIMEOUT_MS,
+          // 用户选的线路已经够快就不用等剩下的源，早点开播
+          shouldStop: (results) =>
+            !!source && speedOf(results[source]) >= GOOD_ENOUGH_BPS,
+        }
+      );
+      if (cancelled) return;
+
+      const ranked = candidates
+        .map((item) => ({ item, bps: speedOf(speeds[item.source]) }))
+        .filter((entry) => entry.bps > 0)
+        .sort((a, b) => b.bps - a.bps);
+
+      const preferred = candidates.find((item) => item.source === source);
+      const preferredBps = preferred ? speedOf(speeds[preferred.source]) : 0;
+
+      let chosen = preferred ?? candidates[0];
+      if (ranked.length > 0) {
+        const fastest = ranked[0];
+        // 用户明确选了线路，且速度不低于最快线路的一半，就尊重用户选择
+        const keepPreferred = !!preferred && preferredBps > 0 && preferredBps * 2 >= fastest.bps;
+        chosen = keepPreferred && preferred ? preferred : fastest.item;
+        if (chosen.source !== (preferred?.source ?? "")) {
+          logger.info(
+            `[PREP] Switch to faster source: ${chosen.source_name} (${Math.round(
+              speedOf(speeds[chosen.source]) / 1024
+            )} KB/s)`
+          );
+        }
+      }
+
+      setPrepareLabel("正在加载视频…");
+
+      // 3. 让 playerStore 使用选中的源
+      const current = useDetailStore.getState().detail;
+      if (!current || current.source !== chosen.source) {
+        await useDetailStore.getState().setDetail(chosen);
+        if (cancelled) return;
+      }
+
+      loadVideo({
+        source: chosen.source,
+        id: chosen.id.toString(),
+        episodeIndex,
+        position,
+        title,
+      });
+
+      if (!cancelled) setPreparing(false);
+    };
+
+    prepare().catch((error) => {
+      logger.debug("[PREP] prepare failed", error);
+      if (!cancelled) {
+        setPreparing(false);
+        if (source && id && title) {
+          loadVideo({ source, id, episodeIndex, position, title });
+        }
+      }
+    });
 
     return () => {
+      cancelled = true;
       logger.info(`[PERF] PlayScreen unmounting - calling reset()`);
       reset(); // Reset state when component unmounts
     };
-  }, [episodeIndex, source, position, setVideoRef, reset, loadVideo, id, title]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [episodeIndex, source, position, id, title]);
 
   // 优化的屏幕点击处理
   const onScreenPress = useCallback(() => {
@@ -323,16 +447,35 @@ export default function PlayScreen() {
     };
   }, [isLoading]);
 
-  if (!detail) {
+  // 竖屏信息面板：退出全屏后显示剧集简介、线路与集数
+  const showInfoPanel = isTouchDevice && !isFullscreen && !!detail;
+  const videoTop = MOBILE_PLAYER_HEADER_HEIGHT + insets.top;
+  const videoHeight = getMobileVideoHeight(windowWidth);
+
+  const videoLayerStyle = showInfoPanel
+    ? {
+        position: "absolute" as const,
+        top: videoTop,
+        left: 0,
+        right: 0,
+        height: videoHeight,
+        backgroundColor: "black",
+        zIndex: 0,
+      }
+    : { ...StyleSheet.absoluteFillObject, zIndex: 0 };
+
+  if (!detail && !preparing) {
     return <VideoLoadingAnimation showProgressBar />;
   }
+
+  const preparePercent = prepareTotal > 0 ? Math.round((prepareDone / prepareTotal) * 100) : 0;
 
   return (
     <ThemedView focusable style={styles.container}>
       <StatusBar hidden={isTouchDevice && isFullscreen} barStyle="light-content" />
 
       {/* 1. 视频层：只负责画面，不接收触摸 */}
-      <View style={styles.videoLayer}>
+      <View style={videoLayerStyle}>
         {currentEpisode?.url ? (
           <Video ref={videoRef} style={styles.videoPlayer} {...videoProps} />
         ) : (
@@ -341,12 +484,14 @@ export default function PlayScreen() {
       </View>
 
       {/* 2. 手势 + 点击层：父级接横向滑动快进，子级 Pressable 负责切换控件显隐 */}
-      <View style={styles.tapLayer} {...(isTouchDevice ? panResponder.panHandlers : {})}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onScreenPress} />
-      </View>
+      {!showInfoPanel && (
+        <View style={styles.tapLayer} {...(isTouchDevice ? panResponder.panHandlers : {})}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onScreenPress} />
+        </View>
+      )}
 
       {/* 3. 加载覆盖层 */}
-      {currentEpisode?.url && isLoading && (
+      {currentEpisode?.url && isLoading && !preparing && (
         <View style={styles.loadingOverlay} pointerEvents="none">
           <VideoLoadingAnimation showProgressBar />
         </View>
@@ -359,11 +504,35 @@ export default function PlayScreen() {
         </View>
       )}
 
-      {/* 5. 控件层：手机端（组件内部自带 zIndex/elevation） */}
-      {isTouchDevice && <MobilePlayerControls showControls={showControls} setShowControls={setShowControls} />}
+      {/* 5. 控件层：手机端全屏（组件内部自带 zIndex/elevation） */}
+      {isTouchDevice && isFullscreen && (
+        <MobilePlayerControls showControls={showControls} setShowControls={setShowControls} />
+      )}
+
+      {/* 6. 手机端竖屏信息面板 */}
+      {showInfoPanel && <MobilePlayerInfoPanel videoTop={videoTop} videoHeight={videoHeight} />}
 
       {/* 滑动预览条 */}
-      <SeekingBar />
+      {!showInfoPanel && <SeekingBar />}
+
+      {/* 7. 播放前测速遮罩 */}
+      {preparing && (
+        <View style={styles.prepareOverlay}>
+          <ActivityIndicator size="large" color="#ffffff" />
+          <Text style={styles.prepareTitle}>{prepareLabel}</Text>
+          {prepareTotal > 0 ? (
+            <>
+              <Text style={styles.prepareSub}>
+                {prepareDone}/{prepareTotal} 条线路{prepareName ? ` · 最近完成 ${prepareName}` : ""}
+              </Text>
+              <View style={styles.prepareTrack}>
+                <View style={[styles.prepareFill, { width: `${Math.max(6, preparePercent)}%` }]} />
+              </View>
+            </>
+          ) : null}
+          <Text style={styles.prepareHint}>速度越快的线路越不容易卡顿</Text>
+        </View>
+      )}
 
       <EpisodeSelectionModal />
       <SourceSelectionModal />
@@ -376,11 +545,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "black",
-  },
-  videoLayer: {
-    ...StyleSheet.absoluteFillObject,
-    // 注意：这里不能设 zIndex，否则会把上面的控件层压住，导致按钮全部点不动
-    zIndex: 0,
   },
   videoPlayer: {
     ...StyleSheet.absoluteFillObject,
@@ -406,5 +570,44 @@ const styles = StyleSheet.create({
   tvControlsLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 25,
+  },
+  prepareOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 60,
+    backgroundColor: "rgba(0,0,0,0.88)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
+  },
+  prepareTitle: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 18,
+    textAlign: "center",
+  },
+  prepareSub: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  prepareTrack: {
+    width: "70%",
+    maxWidth: 320,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    marginTop: 12,
+    overflow: "hidden",
+  },
+  prepareFill: {
+    height: "100%",
+    backgroundColor: "#22c55e",
+  },
+  prepareHint: {
+    color: "rgba(255,255,255,0.35)",
+    fontSize: 11,
+    marginTop: 16,
   },
 });

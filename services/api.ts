@@ -110,6 +110,21 @@ export const isAuthFailure = (error: unknown): boolean =>
 /** 默认超时：弱网电视盒子下 8 秒足够建立连接，再久也基本没救了 */
 const DEFAULT_TIMEOUT_MS = 8000;
 
+/** 估算 UTF-8 字节数：测速要按真实字节算带宽，不能直接用字符数 */
+function utf8ByteLength(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    if (code < 0x80) bytes += 1;
+    else if (code < 0x800) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff) {
+      bytes += 4;
+      i += 1;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
 type ApiRequestOptions = RequestInit & { timeoutMs?: number };
 
 export class API {
@@ -331,6 +346,22 @@ export class API {
     const response = await this._fetch(url, { signal });
     const { results } = await response.json();
     return { results: results.filter((item: any) => item.title === query )};
+  }
+
+  /**
+   * 测速专用：读完整响应体，返回字节数与耗时。
+   * 拿不到视频分片时，用它来估算「服务端取源信息」的传输速度。
+   */
+  async measureThroughput(
+    query: string,
+    resourceId: string,
+    signal?: AbortSignal
+  ): Promise<{ bytes: number; ms: number }> {
+    const url = `/api/search/one?q=${encodeURIComponent(query)}&resourceId=${encodeURIComponent(resourceId)}`;
+    const startedAt = Date.now();
+    const response = await this._fetch(url, { signal, timeoutMs: 8000 });
+    const text = await response.text();
+    return { bytes: utf8ByteLength(text), ms: Math.max(1, Date.now() - startedAt) };
   }
 
   async getResources(signal?: AbortSignal): Promise<ApiSite[]> {

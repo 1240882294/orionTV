@@ -52,15 +52,14 @@ export const SourceSelectionModal: React.FC = () => {
 
   const runSpeedTest = useCallback(() => {
     const keyword = (detail?.title || searchResults[0]?.title || "").trim();
-    const sources = searchResults.map((r) => r.source);
-    if (!keyword || sources.length === 0) return;
+    if (!keyword || searchResults.length === 0) return;
 
     const runId = ++runIdRef.current;
     setTesting(true);
-    // 开新一轮时清掉旧结果，避免把上一轮的延迟当成当前的
+    // 开新一轮时清掉旧结果，避免把上一轮的速度当成当前的
     setSpeeds({});
 
-    testSourcesSpeed(sources, keyword, (result) => {
+    testSourcesSpeed(searchResults, keyword, (result) => {
       if (!mountedRef.current || runId !== runIdRef.current) return;
       setSpeeds((prev) => ({ ...prev, [result.source]: result }));
     })
@@ -120,7 +119,7 @@ export const SourceSelectionModal: React.FC = () => {
             <View style={styles.headerTextWrap}>
               <Text style={styles.modalTitle}>选择播放源</Text>
               <Text style={styles.headerHint}>
-                {testing ? "正在测速…" : `共 ${searchResults.length} 个源，延迟越低越流畅`}
+                {testing ? "正在测速…" : `共 ${searchResults.length} 条线路，速度越快越流畅`}
               </Text>
             </View>
             <Pressable onPress={runSpeedTest} style={styles.retestButton} hitSlop={8} disabled={testing}>
