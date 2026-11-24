@@ -282,25 +282,60 @@ class UpdateService {
   /** --------------------------------------------------------------
    *  5️⃣ 版本比对工具
    * --------------------------------------------------------------- */
+  /**
+   * 解析成「主版本号 + 预发布段」。
+   * `1.3.0-test.6` → { nums: [1,3,0], pre: ["test", 6] }
+   */
+  private parseVersion(version: string) {
+    const clean = String(version || "").trim().replace(/^v/i, "").split("+")[0];
+    const dash = clean.indexOf("-");
+    const core = dash >= 0 ? clean.slice(0, dash) : clean;
+    const preRaw = dash >= 0 ? clean.slice(dash + 1) : "";
+    return {
+      nums: core.split(".").map((part) => {
+        const num = parseInt(part, 10);
+        return Number.isFinite(num) ? num : 0;
+      }),
+      pre: preRaw
+        ? preRaw.split(".").map((part) => (/^\d+$/.test(part) ? Number(part) : part))
+        : ([] as Array<string | number>),
+    };
+  }
+
+  /**
+   * 比较版本号，按语义化版本的规则：
+   * 主版本号逐段比；主版本相同时「正式版 > 预发布版」（1.3.0 > 1.3.0-test.6）。
+   * 之前直接 split('.').map(Number) 会把 `0-test` 拆成 NaN，
+   * 导致比较退化成「不算大也不算小」，测试版用户永远收不到正式版更新。
+   */
   compareVersions(v1: string, v2: string): number {
-    // 先丢掉 -test.4 / +build 这类后缀，否则「1.3.0」和「1.3.0-test.6」会被拆出 NaN，
-    // 比大小直接失效，测试版用户永远收不到正式版更新。
-    const normalize = (version: string) =>
-      version
-        .split(/[-+]/)[0]
-        .split('.')
-        .map((part) => {
-          const num = parseInt(part, 10);
-          return Number.isFinite(num) ? num : 0;
-        });
-    const p1 = normalize(v1);
-    const p2 = normalize(v2);
-    for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
-      const n1 = p1[i] ?? 0;
-      const n2 = p2[i] ?? 0;
+    const a = this.parseVersion(v1);
+    const b = this.parseVersion(v2);
+
+    for (let i = 0; i < Math.max(a.nums.length, b.nums.length); i += 1) {
+      const n1 = a.nums[i] ?? 0;
+      const n2 = b.nums[i] ?? 0;
       if (n1 > n2) return 1;
       if (n1 < n2) return -1;
     }
+
+    if (a.pre.length === 0 && b.pre.length > 0) return 1;
+    if (a.pre.length > 0 && b.pre.length === 0) return -1;
+
+    for (let i = 0; i < Math.max(a.pre.length, b.pre.length); i += 1) {
+      const p1 = a.pre[i];
+      const p2 = b.pre[i];
+      if (p1 === undefined) return -1;
+      if (p2 === undefined) return 1;
+      if (typeof p1 === "number" && typeof p2 === "number") {
+        if (p1 !== p2) return p1 > p2 ? 1 : -1;
+      } else {
+        const s1 = String(p1);
+        const s2 = String(p2);
+        if (s1 !== s2) return s1 > s2 ? 1 : -1;
+      }
+    }
+
     return 0;
   }
 
