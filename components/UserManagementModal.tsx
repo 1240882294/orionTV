@@ -223,6 +223,12 @@ export const UserManagementModal: React.FC = () => {
                     )}
                   </ScrollView>
 
+                  {profiles.length === 1 && !confirmLogout && (
+                    <ThemedText style={styles.hint}>
+                      想换用其他账号？点「添加账号」登录一次，之后就能在这里直接切换。
+                    </ThemedText>
+                  )}
+
                   {confirmLogout ? (
                     <View style={styles.confirmBox}>
                       <View style={{ flex: 1 }}>
@@ -516,6 +522,12 @@ const styles = StyleSheet.create({
     color: Colors.dark.primary,
     fontSize: 14,
     fontWeight: "600",
+  },
+  hint: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 10,
   },
   footer: {
     flexDirection: "row",
