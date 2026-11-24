@@ -38,6 +38,7 @@ import Toast from "react-native-toast-message";
 import usePlayerStore, { selectCurrentEpisode } from "@/stores/playerStore";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { useVideoHandlers } from "@/hooks/useVideoHandlers";
+import { useAdFreePlayback } from "@/hooks/useAdFreePlayback";
 import { testSourcesSpeed, speedOf, getCachedSpeeds, setCachedSpeeds } from "@/services/sourceSpeedTest";
 import Logger from "@/utils/Logger";
 
@@ -129,10 +130,19 @@ export default function PlayScreen() {
   const [prepareTotal, setPrepareTotal] = useState(0);
   const [prepareName, setPrepareName] = useState("");
 
+  // 去广告：先清洗播放列表，再交给播放器；失败/本地列表播不了会自动回退原始地址
+  const adFree = useAdFreePlayback(currentEpisode?.url);
+  const playUrl = adFree.url;
+  const revertAdBlock = adFree.revertToOriginal;
+  // 保持引用稳定，避免每次渲染都重建 Video 的 props
+  const handleBeforeError = useCallback(() => revertAdBlock(), [revertAdBlock]);
+
   // 使用Video事件处理hook
   const { videoProps } = useVideoHandlers({
     videoRef,
     currentEpisode,
+    sourceUrl: playUrl,
+    beforeError: handleBeforeError,
     initialPosition,
     introEndTime,
     playbackRate,
@@ -140,6 +150,21 @@ export default function PlayScreen() {
     deviceType,
     detail: detail || undefined,
   });
+
+  // 过滤成功时轻提示一次，避免同一集重复弹出
+  const adNoticeRef = useRef("");
+  useEffect(() => {
+    if (adFree.blockedSegments <= 0) return;
+    const key = `${currentEpisode?.url}|${adFree.blockedSegments}`;
+    if (adNoticeRef.current === key) return;
+    adNoticeRef.current = key;
+    Toast.show({
+      type: "success",
+      text1: "广告已过滤",
+      text2: `已跳过 ${adFree.blockedSegments} 个广告片段`,
+      visibilityTime: 2500,
+    });
+  }, [adFree.blockedSegments, currentEpisode?.url]);
 
   // TV遥控器处理 - 总是调用hook，但根据设备类型决定是否使用结果
   const tvRemoteHandler = useTVRemoteHandler();
@@ -502,7 +527,7 @@ export default function PlayScreen() {
 
       {/* 1. 视频层：只负责画面，不接收触摸 */}
       <View style={videoLayerStyle}>
-        {currentEpisode?.url ? (
+        {playUrl ? (
           <Video ref={videoRef} style={styles.videoPlayer} {...videoProps} />
         ) : (
           <LoadingContainer style={styles.loadingContainer} currentEpisode={currentEpisode} />
@@ -517,7 +542,7 @@ export default function PlayScreen() {
       )}
 
       {/* 3. 加载覆盖层 */}
-      {currentEpisode?.url && isLoading && !preparing && (
+      {playUrl && isLoading && !preparing && (
         <View style={styles.loadingOverlay} pointerEvents="none">
           <VideoLoadingAnimation showProgressBar />
         </View>

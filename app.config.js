@@ -12,8 +12,8 @@
 const DEFAULT_MIN_SDK = 23; // Android 6.0（RN 0.74 的实际下限）
 const COMPILE_SDK = 34;
 const TARGET_SDK = 34;
-const APP_VERSION = "1.3.0-test.3";
-const VERSION_CODE = 7;
+const APP_VERSION = "1.3.0-test.4";
+const VERSION_CODE = 8;
 
 module.exports = ({ config }) => {
   const rawMinSdk = Number(process.env.ORION_MIN_SDK ?? DEFAULT_MIN_SDK);

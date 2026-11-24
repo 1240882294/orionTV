@@ -141,3 +141,43 @@ org.gradle.parallel=false
 kotlin.compiler.execution.strategy=in-process
 reactNativeArchitectures=armeabi-v7a
 ```
+
+## 八、v1.3.0-test.4 单 ABI 构建修正（重要）
+
+Expo SDK 51 当前生成的 `android/app/build.gradle` **没有** `ndk.abiFilters`，
+只靠 `-PreactNativeArchitectures=arm64-v8a` 或 `gradle.properties` 里的
+`reactNativeArchitectures` 只能约束子模块编译，app 模块的 `mergeReleaseNativeLibs`
+仍会把 4 个 ABI 全部打进 APK（产物 ~64MB），且非目标 ABI 的 so 不完整。
+
+在 `android/app/build.gradle` 的 `defaultConfig` 里显式加过滤即可：
+
+```gradle
+defaultConfig {
+    ...
+    if (project.hasProperty("reactNativeArchitectures")) {
+        ndk {
+            abiFilters project.property("reactNativeArchitectures").split(",")
+        }
+    }
+}
+```
+
+构建命令（先改 `gradle.properties` 的 `reactNativeArchitectures` 为目标 ABI，
+并删掉 `app/build/intermediates/{merged,stripped}_native_libs` 与 `outputs/apk` 强制重算）：
+
+```sh
+export JAVA_HOME=/opt/jdk17 ANDROID_HOME=/opt/android-sdk
+export CMAKE_BUILD_PARALLEL_LEVEL=6 NODE_OPTIONS=--max-old-space-size=4096
+cd android
+NODE_ENV=production /opt/gradle/gradle-8.8/bin/gradle assembleRelease
+```
+
+产物校验（必须只有目标 ABI、且 so 数量与上一版一致）：
+
+```sh
+unzip -l app-release.apk | grep "lib/" | awk '{print $4}' | cut -d/ -f2 | sort | uniq -c
+# 48 arm64-v8a / 48 armeabi-v7a
+```
+
+注意：`./gradlew` 在本环境会尝试联网下载 gradle-8.8-all 并超时，
+直接调用 `/opt/gradle/gradle-8.8/bin/gradle`。

@@ -31,6 +31,8 @@ export interface PlayerSettings {
 
 export interface AppSettings {
   apiBaseUrl: string;
+  /** 播放时自动过滤 m3u8 里的广告分片（默认开启） */
+  adBlockEnabled?: boolean;
   remoteInputEnabled: boolean;
   videoSource: {
     enabledAll: boolean;
@@ -353,6 +355,7 @@ export class SettingsManager {
   static async get(): Promise<AppSettings> {
     const defaultSettings: AppSettings = {
       apiBaseUrl: "",
+      adBlockEnabled: true,
       remoteInputEnabled: true,
       videoSource: {
         enabledAll: true,

@@ -6,6 +6,10 @@ import usePlayerStore from '@/stores/playerStore';
 interface UseVideoHandlersProps {
   videoRef: RefObject<Video>;
   currentEpisode: { url: string; title: string } | undefined;
+  /** 实际交给播放器的地址（可能是去广告后的本地列表） */
+  sourceUrl?: string;
+  /** 播放出错时的前置处理；返回 true 表示已接管（例如回退到原始地址），不再切源 */
+  beforeError?: (error: any) => boolean;
   initialPosition: number;
   introEndTime?: number;
   playbackRate: number;
@@ -17,6 +21,8 @@ interface UseVideoHandlersProps {
 export const useVideoHandlers = ({
   videoRef,
   currentEpisode,
+  sourceUrl,
+  beforeError,
   initialPosition,
   introEndTime,
   playbackRate,
@@ -60,6 +66,9 @@ export const useVideoHandlers = ({
 
   const onError = useCallback((error: any) => {
     if (!currentEpisode?.url) return;
+
+    // 去广告的本地列表播不了时先回退原地址，别急着换线路
+    if (beforeError?.(error)) return;
     
     console.error(`[ERROR] Video playback error:`, error);
     
@@ -97,11 +106,11 @@ export const useVideoHandlers = ({
       });
       usePlayerStore.getState().handleVideoError('other', currentEpisode.url);
     }
-  }, [currentEpisode?.url]);
+  }, [currentEpisode?.url, beforeError]);
 
   // 优化的Video组件props
   const videoProps = useMemo(() => ({
-    source: { uri: currentEpisode?.url || '' },
+    source: { uri: sourceUrl || currentEpisode?.url || '' },
     posterSource: { uri: detail?.poster ?? "" },
     resizeMode: ResizeMode.CONTAIN,
     rate: playbackRate,
@@ -114,6 +123,7 @@ export const useVideoHandlers = ({
     shouldPlay: true,
   }), [
     currentEpisode?.url,
+    sourceUrl,
     detail?.poster,
     playbackRate,
     handlePlaybackStatusUpdate,
