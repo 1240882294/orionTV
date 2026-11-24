@@ -3,6 +3,7 @@ import { View, StyleSheet, Platform, ActivityIndicator } from "react-native";
 import { ThemedText } from "../ThemedText";
 import { StyledButton } from "../StyledButton";
 import { useUpdateStore } from "@/stores/updateStore";
+import { getUpdateChannel } from "@/constants/UpdateConfig";
 
 /**
  * 远程更新
@@ -53,7 +54,9 @@ export function UpdateSection() {
     }
   };
 
-  const channelLabel = channel === "tv" ? "电视版 · 32 位" : "手机版 · 64 位";
+  // 渠道以实时判定为准：布局层可能把电视盒子的渠道钉成 tv，store 里的快照会滞后
+  const activeChannel = getUpdateChannel() || channel;
+  const channelLabel = activeChannel === "tv" ? "电视版 · 32 位" : "手机版 · 64 位";
 
   return (
     <View style={styles.sectionContainer}>

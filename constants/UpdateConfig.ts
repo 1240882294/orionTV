@@ -24,8 +24,20 @@ const RAW_BASE = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}`;
 
 export type UpdateChannel = "tv" | "phone";
 
+/**
+ * 渠道覆盖：不少国产电视盒子 `Platform.isTV` 为 false（系统没声明 leanback 特性），
+ * 但界面确实是电视布局。这时若按 `Platform.isTV` 判成 phone，32 位盒子会下到 64 位包、
+ * 装不上。所以允许布局层在识别出电视布局时把渠道钉成 tv。
+ */
+let channelOverride: UpdateChannel | null = null;
+
+export const setUpdateChannelOverride = (channel: UpdateChannel | null) => {
+  channelOverride = channel;
+};
+
 /** 电视端与手机端使用同一份代码，运行时按设备能力区分更新渠道。 */
-export const getUpdateChannel = (): UpdateChannel => (Platform.isTV ? "tv" : "phone");
+export const getUpdateChannel = (): UpdateChannel =>
+  channelOverride ?? (Platform.isTV ? "tv" : "phone");
 
 export const UPDATE_CONFIG = {
   // 自动检查更新

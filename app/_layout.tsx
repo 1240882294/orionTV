@@ -17,7 +17,7 @@ import useBootStore from "@/stores/bootStore";
 import BootGate from "@/components/BootGate";
 import { UpdateModal } from "@/components/UpdateModal";
 import { initUpdateStore, useUpdateStore } from "@/stores/updateStore";
-import { UPDATE_CONFIG } from "@/constants/UpdateConfig";
+import { UPDATE_CONFIG, setUpdateChannelOverride } from "@/constants/UpdateConfig";
 import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('RootLayout');
@@ -75,6 +75,12 @@ export default function RootLayout() {
       }
     }
   }, [loaded, error, bootSettled]);
+
+  // 电视盒子常常识别不出 Platform.isTV，这里按布局判定把更新渠道钉成 tv，
+  // 否则会去下 64 位包，32 位盒子装不上
+  useEffect(() => {
+    setUpdateChannelOverride(responsiveConfig.deviceType === "tv" ? "tv" : null);
+  }, [responsiveConfig.deviceType]);
 
   // 远程更新：启动页结束后静默查一次（12 小时内不重复查），有新版才弹窗
   useEffect(() => {
