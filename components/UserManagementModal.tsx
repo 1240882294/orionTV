@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -47,6 +47,13 @@ export const UserManagementModal: React.FC = () => {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [focusedField, setFocusedField] = useState<"username" | "password" | null>(null);
+
+  const usernameRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+
+  // react-native-tvos 的原生 TextInput 支持 hasTVPreferredFocus，RN 的 TS 类型里没有
+  const tvPreferredFocusProps: any = isTV ? { hasTVPreferredFocus: true } : {};
 
   // 每次打开都回到列表首页，避免上次停在「添加账号」表单
   useEffect(() => {
@@ -55,8 +62,18 @@ export const UserManagementModal: React.FC = () => {
       setConfirmLogout(false);
       setUsername("");
       setPassword("");
+      setFocusedField(null);
     }
   }, [visible]);
+
+  // 电视端进入表单时把焦点直接放到用户名，遥控器不用先摸索
+  useEffect(() => {
+    if (!visible || !isTV || view !== "add") return;
+    const timer = setTimeout(() => {
+      usernameRef.current?.focus();
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [visible, isTV, view]);
 
   const activeProfile = profiles.find((item) => item.id === activeId);
 
@@ -94,8 +111,9 @@ export const UserManagementModal: React.FC = () => {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
       <View style={styles.overlay}>
-        {/* 点空白关闭：铺一层绝对定位的遮罩，卡片自身的点击不会传到这里 */}
-        <Pressable style={StyleSheet.absoluteFill} onPress={close} />
+        {/* 点空白关闭：铺一层绝对定位的遮罩，卡片自身的点击不会传到这里。
+            加 focusable={false}：否则电视端焦点会跑进这层看不见的遮罩里，输入框就选不中了。 */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={close} focusable={false} />
 
         <View
           style={[
@@ -316,7 +334,12 @@ export const UserManagementModal: React.FC = () => {
               </ThemedText>
 
               <TextInput
-                style={[styles.input, isTV && styles.inputTV]}
+                ref={usernameRef}
+                style={[
+                  styles.input,
+                  isTV && styles.inputTV,
+                  focusedField === "username" && styles.inputFocused,
+                ]}
                 placeholder="用户名"
                 placeholderTextColor="#77777f"
                 autoCapitalize="none"
@@ -324,21 +347,32 @@ export const UserManagementModal: React.FC = () => {
                 value={username}
                 onChangeText={setUsername}
                 returnKeyType="next"
+                blurOnSubmit={false}
+                onFocus={() => setFocusedField("username")}
+                onBlur={() => setFocusedField((current) => (current === "username" ? null : current))}
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                {...tvPreferredFocusProps}
               />
               <TextInput
-                style={[styles.input, isTV && styles.inputTV]}
+                ref={passwordRef}
+                style={[
+                  styles.input,
+                  isTV && styles.inputTV,
+                  focusedField === "password" && styles.inputFocused,
+                ]}
                 placeholder="密码"
                 placeholderTextColor="#77777f"
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
                 returnKeyType="go"
+                onFocus={() => setFocusedField("password")}
+                onBlur={() => setFocusedField((current) => (current === "password" ? null : current))}
                 onSubmitEditing={() => void handleAdd()}
               />
 
               <Pressable
                 focusable
-                hasTVPreferredFocus
                 disabled={busy}
                 onPress={() => void handleAdd()}
                 style={({ focused }: { focused?: boolean }) => [
@@ -646,6 +680,10 @@ const styles = StyleSheet.create({
   inputTV: {
     height: 58,
     fontSize: 18,
+  },
+  inputFocused: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: "rgba(255,255,255,0.1)",
   },
   addHint: {
     color: "rgba(255,255,255,0.35)",

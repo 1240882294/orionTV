@@ -3,6 +3,28 @@
 本项目基于上游 [orion-lib/OrionTV](https://github.com/orion-lib/OrionTV) 源码二次修改，
 版本号从 `1.0.0` 重新起算，与上游 1.3.14 的对应关系在每条记录里注明。
 
+## v1.4.2 — 2026-11-24（正式版）
+
+修复电视端「添加账号」表单里遥控器进不了输入框的问题。
+
+### 修复
+
+- **电视端焦点卡在登录按钮，选不中用户名/密码**：面板为了「点空白关闭」铺了一层铺满全屏的
+  `Pressable` 遮罩。Android TV 上这层遮罩自身是可聚焦的，而且几何上覆盖了整个卡片，
+  方向键搜索时会被优先命中 —— 焦点落进一层看不见的视图，看起来就是「光标动不了」。
+  现在遮罩改为 `focusable={false}`，只保留触摸关闭能力，不再参与焦点遍历。
+- 同时补上电视端的输入体验：
+  - 进入表单后焦点直接落在「用户名」（`hasTVPreferredFocus` + 主动 `focus()`），不用摸索；
+  - 输入框获得焦点时边框变主题色、背景提亮，能看出当前在哪一格；
+  - 用户名按「下一项」自动跳到密码框，密码按「完成」直接提交；
+  - 登录按钮不再抢占初始焦点（之前会先吃掉焦点）。
+
+### 技术细节
+
+- `components/UserManagementModal.tsx`：遮罩 `focusable={false}`；新增 `usernameRef` / `passwordRef`
+  与 `focusedField` 状态、`tvPreferredFocusProps`、`inputFocused` 样式；`onSubmitEditing` 串起用户名 → 密码 → 提交。
+- 手机端行为不变（`hasTVPreferredFocus` 与主动 focus 只在 `deviceType === "tv"` 时生效）。
+
 ## v1.4.1 — 2026-11-24（正式版）
 
 修复 1.4.0 的两个问题，没有新增功能。
