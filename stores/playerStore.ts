@@ -26,6 +26,8 @@ interface PlayerState {
   showNextEpisodeOverlay: boolean;
   isSeeking: boolean;
   seekPosition: number;
+  /** 本次 seek 的来源：手势滑动 / 控件进度条 / 快进按钮。只用于决定是否显示全屏预览条 */
+  seekSource: "gesture" | "slider" | "button" | null;
   progressPosition: number;
   initialPosition: number;
   playbackRate: number;
@@ -53,8 +55,8 @@ interface PlayerState {
   setPlaybackRate: (rate: number) => void;
   setIsFullscreen: (fullscreen: boolean) => void;
   toggleFullscreen: () => void;
-  beginSeek: () => void;
-  updateSeekPreview: (ratio: number) => void;
+  beginSeek: (source?: "gesture" | "slider" | "button") => void;
+  updateSeekPreview: (ratio: number, source?: "gesture" | "slider" | "button") => void;
   commitSeek: (ratio?: number) => Promise<void>;
   seekBy: (deltaMillis: number) => Promise<void>;
   setIntroEndTime: () => void;
@@ -80,6 +82,7 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
   showNextEpisodeOverlay: false,
   isSeeking: false,
   seekPosition: 0,
+  seekSource: null,
   progressPosition: 0,
   initialPosition: 0,
   playbackRate: 1.0,
@@ -294,13 +297,14 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
 
     set({
       isSeeking: true,
+      seekSource: "button",
       seekPosition: newPosition / status.durationMillis,
     });
 
     if (get()._seekTimeout) {
       clearTimeout(get()._seekTimeout);
     }
-    const timeoutId = setTimeout(() => set({ isSeeking: false }), 1000);
+    const timeoutId = setTimeout(() => set({ isSeeking: false, seekSource: null }), 1000);
     set({ _seekTimeout: timeoutId });
   },
 
@@ -464,7 +468,7 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
   toggleFullscreen: () => set({ isFullscreen: !get().isFullscreen }),
 
   // 手势滑动开始：进入进度预览状态
-  beginSeek: () => {
+  beginSeek: (source = "gesture") => {
     const { status } = get();
     if (!status?.isLoaded || !status.durationMillis) return;
     if (get()._seekTimeout) {
@@ -473,20 +477,25 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
     }
     set({
       isSeeking: true,
+      seekSource: source,
       seekPosition: status.positionMillis / status.durationMillis,
     });
   },
 
   // 手势滑动中：只更新预览，不动播放器
-  updateSeekPreview: (ratio) => {
-    set({ isSeeking: true, seekPosition: Math.max(0, Math.min(1, ratio)) });
+  updateSeekPreview: (ratio, source) => {
+    set({
+      isSeeking: true,
+      ...(source ? { seekSource: source } : {}),
+      seekPosition: Math.max(0, Math.min(1, ratio)),
+    });
   },
 
   // 手势结束：真正跳转
   commitSeek: async (ratio) => {
     const { status, videoRef } = get();
     if (!status?.isLoaded || !status.durationMillis) {
-      set({ isSeeking: false });
+      set({ isSeeking: false, seekSource: null });
       return;
     }
 
@@ -501,7 +510,10 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
     }
 
     if (get()._seekTimeout) clearTimeout(get()._seekTimeout);
-    const timeoutId = setTimeout(() => set({ isSeeking: false }), 600);
+    // 松手即收起全屏预览条，避免和控件里的进度条同时出现（重影）；
+    // isSeeking 再保留一会儿，等播放器上报新位置，防止进度条回跳。
+    set({ seekSource: null });
+    const timeoutId = setTimeout(() => set({ isSeeking: false }), 500);
     set({ _seekTimeout: timeoutId });
   },
 
@@ -523,12 +535,13 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
 
     set({
       isSeeking: true,
+      seekSource: "button",
       seekPosition: targetMillis / status.durationMillis,
       progressPosition: targetMillis / status.durationMillis,
     });
 
     if (get()._seekTimeout) clearTimeout(get()._seekTimeout);
-    const timeoutId = setTimeout(() => set({ isSeeking: false }), 800);
+    const timeoutId = setTimeout(() => set({ isSeeking: false, seekSource: null }), 800);
     set({ _seekTimeout: timeoutId });
   },
 
@@ -548,6 +561,7 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
       isFullscreen: false,
       isSeeking: false,
       seekPosition: 0,
+      seekSource: null,
       progressPosition: 0,
       introEndTime: undefined,
       outroStartTime: undefined,

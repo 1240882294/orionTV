@@ -290,3 +290,67 @@ export function speedOf(result?: SourceSpeedResult | null): number {
   if (!result || !result.ok || !result.bytesPerSec) return 0;
   return result.bytesPerSec;
 }
+
+// ---------------------------------------------------------------------------
+// 测速结果缓存
+//
+// 需求：只在「打开视频」时测一次速，之后（切全屏 / 切竖屏 / 打开线路弹窗）
+// 都直接复用这次结果，需要更新时由用户手动点「测速」。所以这里用一个带 TTL 的
+// 进程内缓存，并把变更广播给正在展示速度的界面。
+// ---------------------------------------------------------------------------
+
+/** 缓存有效期：10 分钟，超过则视为过期，重新打开视频时会再测一次 */
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+interface SpeedCacheEntry {
+  at: number;
+  results: Record<string, SourceSpeedResult>;
+}
+
+const speedCache = new Map<string, SpeedCacheEntry>();
+
+type SpeedListener = (title: string, results: Record<string, SourceSpeedResult>) => void;
+const speedListeners = new Set<SpeedListener>();
+
+const cacheKeyOf = (title: string) => (title || "").trim().toLowerCase();
+
+/** 读取缓存；不存在或已过期返回 null */
+export function getCachedSpeeds(title: string): Record<string, SourceSpeedResult> | null {
+  const entry = speedCache.get(cacheKeyOf(title));
+  if (!entry) return null;
+  if (Date.now() - entry.at > CACHE_TTL_MS) return null;
+  return entry.results;
+}
+
+/** 写入缓存并通知订阅者；merge=true 时与已有结果合并（用于逐个完成的增量更新） */
+export function setCachedSpeeds(
+  title: string,
+  results: Record<string, SourceSpeedResult>,
+  merge = false
+): void {
+  const key = cacheKeyOf(title);
+  if (!key) return;
+  const prev = merge ? speedCache.get(key)?.results ?? {} : {};
+  const next = { ...prev, ...results };
+  speedCache.set(key, { at: Date.now(), results: next });
+  speedListeners.forEach((listener) => {
+    try {
+      listener(key, next);
+    } catch {
+      // 单个订阅者异常不影响其他界面
+    }
+  });
+}
+
+/** 订阅测速结果变更，返回取消订阅函数 */
+export function subscribeSpeeds(listener: SpeedListener): () => void {
+  speedListeners.add(listener);
+  return () => {
+    speedListeners.delete(listener);
+  };
+}
+
+/** 输入标题时的匹配键，供界面判断推送是否属于当前影片 */
+export function speedCacheKey(title: string): string {
+  return cacheKeyOf(title);
+}

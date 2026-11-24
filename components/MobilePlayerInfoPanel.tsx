@@ -16,7 +16,11 @@ import {
   SourceSpeedResult,
   SPEED_COLORS,
   formatSpeed,
+  getCachedSpeeds,
   gradeSpeed,
+  setCachedSpeeds,
+  speedCacheKey,
+  subscribeSpeeds,
   testSourcesSpeed,
 } from "@/services/sourceSpeedTest";
 import Logger from "@/utils/Logger";
@@ -72,13 +76,14 @@ export const MobilePlayerInfoPanel: React.FC<Props> = ({ videoTop, videoHeight }
     if (!keyword || searchResults.length === 0) return;
     const runId = ++runIdRef.current;
     setTesting(true);
-    setSpeeds({});
 
     testSourcesSpeed(searchResults, keyword, (result) => {
       if (!mountedRef.current || runId !== runIdRef.current) return;
       setSpeeds((prev) => ({ ...prev, [result.source]: result }));
+      setCachedSpeeds(keyword, { [result.source]: result }, true);
     })
-      .then(() => {
+      .then((results) => {
+        if (runId === runIdRef.current) setCachedSpeeds(keyword, results);
         if (mountedRef.current && runId === runIdRef.current) setTesting(false);
       })
       .catch((error) => {
@@ -94,12 +99,21 @@ export const MobilePlayerInfoPanel: React.FC<Props> = ({ videoTop, videoHeight }
     };
   }, []);
 
-  // 面板出现就测一轮，方便直接看出哪条线路快
+  // 面板出现时只读取打开视频时那一次测速的结果，切全屏/竖屏不再自动重测
   useEffect(() => {
     if (!keyword || !sourcesKey) return;
-    runSpeedTest();
+    setSpeeds(getCachedSpeeds(keyword) ?? {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyword, sourcesKey]);
+
+  // 测速结果随时同步（播放前测速、线路弹窗手动测速都会推过来）
+  useEffect(() => {
+    const key = speedCacheKey(keyword);
+    return subscribeSpeeds((changedKey, results) => {
+      if (!mountedRef.current || changedKey !== key) return;
+      setSpeeds(results);
+    });
+  }, [keyword]);
 
   const onSelectSource = (index: number) => {
     const target = searchResults[index];
@@ -190,7 +204,9 @@ export const MobilePlayerInfoPanel: React.FC<Props> = ({ videoTop, videoHeight }
             ) : (
               <RefreshCw color="#9ca3af" size={13} />
             )}
-            <Text style={styles.retestText}>{testing ? "测速中" : "重新测速"}</Text>
+            <Text style={styles.retestText}>
+              {testing ? "测速中" : Object.keys(speeds).length ? "重新测速" : "测速"}
+            </Text>
           </Pressable>
         </View>
 
@@ -224,7 +240,7 @@ export const MobilePlayerInfoPanel: React.FC<Props> = ({ videoTop, videoHeight }
                     style={[styles.speedText, { color: SPEED_COLORS[grade] }]}
                     numberOfLines={1}
                   >
-                    {formatSpeed(speed)}
+                    {speed ? formatSpeed(speed) : "未测速"}
                   </Text>
                 </View>
               </Pressable>

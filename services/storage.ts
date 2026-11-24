@@ -259,6 +259,43 @@ export class PlayRecordManager {
     }
   }
 
+  /**
+   * 同一部影片换源后，清掉其他线路留下的旧记录，只保留 keepKey 这一条。
+   * 否则一部片子看过两个源，最近播放里就会出现两条一样的封面。
+   * year 可选：同名不同年的剧（重制版）不会互相误删。
+   */
+  static async removeDuplicatesByTitle(title: string, keepKey: string, year?: string): Promise<void> {
+    const normalized = (title || "").trim();
+    if (!normalized) return;
+    const normalizedYear = (year || "").trim();
+
+    const allRecords = await this.getAll();
+    const staleKeys = Object.keys(allRecords).filter((key) => {
+      if (key === keepKey) return false;
+      const record = allRecords[key];
+      if (!record) return false;
+      if ((record.title || "").trim() !== normalized) return false;
+      if (normalizedYear && (record.year || "").trim() !== normalizedYear) return false;
+      return true;
+    });
+    if (staleKeys.length === 0) return;
+
+    if (this.getStorageType() === "localstorage") {
+      for (const key of staleKeys) {
+        delete allRecords[key];
+      }
+      await AsyncStorage.setItem(STORAGE_KEYS.PLAY_RECORDS, JSON.stringify(allRecords));
+      for (const key of staleKeys) {
+        const cut = key.lastIndexOf("+");
+        if (cut > 0) await PlayerSettingsManager.remove(key.slice(0, cut), key.slice(cut + 1));
+      }
+    } else {
+      for (const key of staleKeys) {
+        await api.deletePlayRecord(key);
+      }
+    }
+  }
+
   static async clearAll(): Promise<void> {
     await PlayerSettingsManager.clearAll(); // Always clear local settings
 

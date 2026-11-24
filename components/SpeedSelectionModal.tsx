@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Modal, FlatList, useWindowDimensions } from "react-native";
+import { View, Text, StyleSheet, Modal, FlatList, Pressable, useWindowDimensions } from "react-native";
 import { StyledButton } from "./StyledButton";
 import usePlayerStore from "@/stores/playerStore";
 
@@ -22,8 +22,8 @@ export const SpeedSelectionModal: React.FC = () => {
   const { showSpeedModal, setShowSpeedModal, playbackRate, setPlaybackRate } = usePlayerStore();
   const { width: windowWidth } = useWindowDimensions();
 
-  // 手机端面板不超出屏宽
-  const panelWidth = Math.min(500, windowWidth * 0.92);
+  // 手机端面板收窄一点，左右留出空白区域方便点击关闭
+  const panelWidth = Math.min(460, windowWidth * 0.86);
 
   const onSelectSpeed = (rate: number) => {
     setPlaybackRate(rate);
@@ -37,7 +37,12 @@ export const SpeedSelectionModal: React.FC = () => {
   return (
     <Modal visible={showSpeedModal} transparent={true} animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
-        <View style={[styles.modalContent, { width: panelWidth }]}>
+        {/* 点击空白区域关闭：横屏时面板只占右侧，左侧画面区域可点 */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View
+          style={[styles.modalContent, { width: panelWidth }]}
+          onStartShouldSetResponder={() => true}
+        >
           <Text style={styles.modalTitle}>播放速度</Text>
           <FlatList
             data={SPEED_OPTIONS}

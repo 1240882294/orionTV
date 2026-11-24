@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { SearchResult, api } from "@/services/api";
 import { getResolutionFromM3U8 } from "@/services/m3u8";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { FavoriteManager } from "@/services/storage";
+import { FavoriteManager, PlayRecordManager } from "@/services/storage";
 import Logger from "@/utils/Logger";
 
 const logger = Logger.withTag('DetailStore');
@@ -315,8 +315,17 @@ const useDetailStore = create<DetailState>((set, get) => ({
   },
 
   setDetail: async (detail) => {
+    const prev = get().detail;
     set({ detail });
     const { source, id } = detail;
+
+    // 同一部影片切换线路后，删掉旧线路留下的播放记录，最近播放只保留最新一条
+    if (prev && prev.source !== source && (prev.title || "").trim() === (detail.title || "").trim()) {
+      PlayRecordManager.removeDuplicatesByTitle(detail.title, `${source}+${id}`, detail.year).catch(
+        (error) => logger.debug("Failed to prune duplicate play records:", error)
+      );
+    }
+
     const isFavorited = await FavoriteManager.isFavorited(source, id.toString());
     set({ isFavorited });
   },

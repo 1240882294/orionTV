@@ -143,6 +143,9 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
     currentEpisodeIndex,
     playbackRate,
     isFullscreen,
+    showEpisodeModal,
+    showSpeedModal,
+    showSourceModal,
     togglePlayPause,
     toggleFullscreen,
     seekBy,
@@ -163,13 +166,15 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
   const isPlaying = status?.isLoaded ? !!status.isPlaying : false;
   const duration = status?.isLoaded ? status.durationMillis || 0 : 0;
   const currentEpisodeTitle = episodes[currentEpisodeIndex]?.title;
+  // 选集 / 倍速 / 线路弹窗打开期间不自动隐藏控件，否则关掉弹窗后一片黑
+  const anyModalOpen = showEpisodeModal || showSpeedModal || showSourceModal;
 
   // 播放中 4 秒无操作自动隐藏控件
   useEffect(() => {
-    if (!showControls || !isPlaying) return;
+    if (!showControls || !isPlaying || anyModalOpen) return;
     const timer = setTimeout(() => setShowControls(false), 4000);
     return () => clearTimeout(timer);
-  }, [showControls, isPlaying, interactionTick, setShowControls]);
+  }, [showControls, isPlaying, anyModalOpen, interactionTick, setShowControls]);
 
   const guard = (fn: () => void) => () => {
     touch();
@@ -187,9 +192,10 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
   const onPreview = useCallback(
     (ratio: number) => {
       if (!usePlayerStore.getState().isSeeking) {
-        beginSeek();
+        // 标记来源为控件进度条：此时不要再显示全屏手势预览条，否则两条进度条会叠在一起
+        beginSeek("slider");
       }
-      updateSeekPreview(ratio);
+      updateSeekPreview(ratio, "slider");
       touch();
     },
     [beginSeek, updateSeekPreview, touch]

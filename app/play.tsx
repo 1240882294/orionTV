@@ -38,7 +38,7 @@ import Toast from "react-native-toast-message";
 import usePlayerStore, { selectCurrentEpisode } from "@/stores/playerStore";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { useVideoHandlers } from "@/hooks/useVideoHandlers";
-import { testSourcesSpeed, speedOf } from "@/services/sourceSpeedTest";
+import { testSourcesSpeed, speedOf, getCachedSpeeds, setCachedSpeeds } from "@/services/sourceSpeedTest";
 import Logger from "@/utils/Logger";
 
 const logger = Logger.withTag("PlayScreen");
@@ -230,7 +230,9 @@ export default function PlayScreen() {
           const state = usePlayerStore.getState();
           if (!state.status?.isLoaded || !state.status.durationMillis) return;
           seekStartRef.current = state.status.positionMillis;
-          state.beginSeek();
+          state.beginSeek("gesture");
+          // 手势快进时收起控件，只留中间的预览卡片，避免两套进度条同时出现
+          state.setShowControls(false);
         },
         onPanResponderMove: (_evt, gesture) => {
           const state = usePlayerStore.getState();
@@ -243,7 +245,7 @@ export default function PlayScreen() {
           const target = Math.max(0, Math.min(seekStartRef.current + delta, duration));
 
           swipeRatioRef.current = target / duration;
-          state.updateSeekPreview(swipeRatioRef.current);
+          state.updateSeekPreview(swipeRatioRef.current, "gesture");
         },
         onPanResponderRelease: () => {
           const state = usePlayerStore.getState();
@@ -310,30 +312,44 @@ export default function PlayScreen() {
         return;
       }
 
-      // 2. 测速挑最优线路
-      setPrepareLabel("正在测速 · 正在挑选最优线路");
-      setPrepareTotal(candidates.length);
-      setPrepareDone(0);
+      // 2. 测速挑最优线路：只在本次打开视频时测一次，结果写入缓存供其他界面复用
+      const cached = getCachedSpeeds(title);
+      if (cached) {
+        logger.info("[PREP] Reuse cached speed results");
+      } else {
+        setPrepareLabel("正在测速 · 正在挑选最优线路");
+        setPrepareTotal(candidates.length);
+        setPrepareDone(0);
+      }
 
-      const speeds = await testSourcesSpeed(
-        candidates,
-        title,
-        (result, done) => {
-          if (cancelled) return;
-          setPrepareDone(done);
-          if (result.ok) {
-            const matched = candidates.find((item) => item.source === result.source);
-            setPrepareName(matched?.source_name || result.source);
+      const speeds =
+        cached ??
+        (await testSourcesSpeed(
+          candidates,
+          title,
+          (result, done) => {
+            if (cancelled) return;
+            setPrepareDone(done);
+            if (result.ok) {
+              const matched = candidates.find((item) => item.source === result.source);
+              setPrepareName(matched?.source_name || result.source);
+            }
+            // 增量写入缓存：竖屏信息面板一出现就能看到已测完的线路
+            setCachedSpeeds(title, { [result.source]: result }, true);
+          },
+          {
+            totalTimeoutMs: PREPARE_TIMEOUT_MS,
+            // 用户选的线路已经够快就不用等剩下的源，早点开播
+            shouldStop: (results) =>
+              !!preferredSource && speedOf(results[preferredSource]) >= GOOD_ENOUGH_BPS,
           }
-        },
-        {
-          totalTimeoutMs: PREPARE_TIMEOUT_MS,
-          // 用户选的线路已经够快就不用等剩下的源，早点开播
-          shouldStop: (results) =>
-            !!preferredSource && speedOf(results[preferredSource]) >= GOOD_ENOUGH_BPS,
-        }
-      );
+        ));
       if (cancelled) return;
+
+      if (!cached) {
+        // 补齐没测到的源，避免缓存里缺少条目被当成「未测速」
+        setCachedSpeeds(title, speeds);
+      }
 
       const ranked = candidates
         .map((item) => ({ item, bps: speedOf(speeds[item.source]) }))

@@ -19,10 +19,16 @@ const formatTime = (milliseconds: number) => {
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 };
 
+/**
+ * 手势滑动时的进度预览。
+ *
+ * 只在「左右滑动画面」这种手势时出现；控件里的进度条拖动、快进按钮都有自己的反馈，
+ * 如果这里也显示，就会出现两条进度条叠在一起的重影。
+ */
 export const SeekingBar = () => {
-  const { isSeeking, seekPosition, status } = usePlayerStore();
+  const { isSeeking, seekSource, seekPosition, status } = usePlayerStore();
 
-  if (!isSeeking || !status?.isLoaded) {
+  if (!isSeeking || seekSource !== "gesture" || !status?.isLoaded) {
     return null;
   }
 
@@ -30,59 +36,53 @@ export const SeekingBar = () => {
   const currentPositionMillis = seekPosition * durationMillis;
 
   return (
-    <View style={styles.seekingContainer} pointerEvents="none">
-      <Text style={styles.timeText}>
-        {formatTime(currentPositionMillis)} / {formatTime(durationMillis)}
-      </Text>
-      <View style={styles.seekingBarContainer}>
-        <View style={styles.seekingBarBackground} />
-        <View
-          style={[
-            styles.seekingBarFilled,
-            {
-              width: `${seekPosition * 100}%`,
-            },
-          ]}
-        />
+    <View style={styles.layer} pointerEvents="none">
+      <View style={styles.card}>
+        <Text style={styles.timeText}>
+          {formatTime(currentPositionMillis)} / {formatTime(durationMillis)}
+        </Text>
+        <View style={styles.track}>
+          <View style={[styles.filled, { width: `${Math.max(0, Math.min(1, seekPosition)) * 100}%` }]} />
+        </View>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  seekingContainer: {
-    position: "absolute",
-    bottom: 80,
-    left: "5%",
-    right: "5%",
+  // 居中悬浮，不占底部空间，避免和控件层重叠
+  layer: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
+    justifyContent: "center",
     zIndex: 40,
     elevation: 40,
   },
+  card: {
+    minWidth: 220,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.72)",
+    alignItems: "center",
+  },
   timeText: {
     color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 10,
+    fontSize: 17,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
   },
-  seekingBarContainer: {
-    width: "100%",
-    height: 5,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    borderRadius: 2.5,
+  track: {
+    width: 180,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.28)",
+    marginTop: 10,
+    overflow: "hidden",
   },
-  seekingBarBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    borderRadius: 2.5,
-  },
-  seekingBarFilled: {
+  filled: {
     height: "100%",
-    backgroundColor: "#fff",
-    borderRadius: 2.5,
+    backgroundColor: "#22c55e",
+    borderRadius: 2,
   },
 });

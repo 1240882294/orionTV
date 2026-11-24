@@ -19,7 +19,11 @@ import {
   SourceSpeedResult,
   SPEED_COLORS,
   formatSpeed,
+  getCachedSpeeds,
   gradeSpeed,
+  setCachedSpeeds,
+  speedCacheKey,
+  subscribeSpeeds,
   testSourcesSpeed,
 } from "@/services/sourceSpeedTest";
 import Logger from "@/utils/Logger";
@@ -43,6 +47,8 @@ export const SourceSelectionModal: React.FC = () => {
   const mountedRef = useRef(true);
   const runIdRef = useRef(0);
 
+  const keyword = (detail?.title || searchResults[0]?.title || "").trim();
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -50,34 +56,45 @@ export const SourceSelectionModal: React.FC = () => {
     };
   }, []);
 
+  // 打开弹窗只读取「打开视频时」那一次测速的结果，不再自动重测；要更新由用户手动点按钮
+  useEffect(() => {
+    if (!showSourceModal || !keyword) return;
+    const cached = getCachedSpeeds(keyword);
+    if (cached) {
+      setSpeeds(cached);
+      setTesting(false);
+    }
+  }, [showSourceModal, keyword]);
+
+  // 测速结果随时同步（播放前测速、信息面板手动测速都会推过来）
+  useEffect(() => {
+    const key = speedCacheKey(keyword);
+    return subscribeSpeeds((changedKey, results) => {
+      if (!mountedRef.current || changedKey !== key) return;
+      setSpeeds(results);
+    });
+  }, [keyword]);
+
   const runSpeedTest = useCallback(() => {
-    const keyword = (detail?.title || searchResults[0]?.title || "").trim();
     if (!keyword || searchResults.length === 0) return;
 
     const runId = ++runIdRef.current;
     setTesting(true);
-    // 开新一轮时清掉旧结果，避免把上一轮的速度当成当前的
-    setSpeeds({});
 
     testSourcesSpeed(searchResults, keyword, (result) => {
       if (!mountedRef.current || runId !== runIdRef.current) return;
       setSpeeds((prev) => ({ ...prev, [result.source]: result }));
+      setCachedSpeeds(keyword, { [result.source]: result }, true);
     })
-      .then(() => {
+      .then((results) => {
+        if (runId === runIdRef.current) setCachedSpeeds(keyword, results);
         if (mountedRef.current && runId === runIdRef.current) setTesting(false);
       })
       .catch((error) => {
         logger.debug("speed test aborted", error);
         if (mountedRef.current && runId === runIdRef.current) setTesting(false);
       });
-  }, [detail?.title, searchResults]);
-
-  // 每次打开弹窗都重新测速：源站状态会变，缓存反而误导用户
-  useEffect(() => {
-    if (showSourceModal) {
-      runSpeedTest();
-    }
-  }, [showSourceModal, runSpeedTest]);
+  }, [keyword, searchResults]);
 
   const onSelectSource = (index: number) => {
     const target = searchResults[index];
@@ -119,7 +136,9 @@ export const SourceSelectionModal: React.FC = () => {
             <View style={styles.headerTextWrap}>
               <Text style={styles.modalTitle}>选择播放源</Text>
               <Text style={styles.headerHint}>
-                {testing ? "正在测速…" : `共 ${searchResults.length} 条线路，速度越快越流畅`}
+                {testing
+                  ? "正在测速…"
+                  : `共 ${searchResults.length} 条线路${Object.keys(speeds).length ? "" : "，点右侧按钮可测速"}`}
               </Text>
             </View>
             <Pressable onPress={runSpeedTest} style={styles.retestButton} hitSlop={8} disabled={testing}>
@@ -128,7 +147,9 @@ export const SourceSelectionModal: React.FC = () => {
               ) : (
                 <RefreshCw color="white" size={16} />
               )}
-              <Text style={styles.retestText}>{testing ? "测速中" : "重新测速"}</Text>
+              <Text style={styles.retestText}>
+                {testing ? "测速中" : Object.keys(speeds).length ? "重新测速" : "测速"}
+              </Text>
             </Pressable>
           </View>
 
@@ -161,7 +182,7 @@ export const SourceSelectionModal: React.FC = () => {
                   <View style={styles.metaRow}>
                     <View style={[styles.speedDot, { backgroundColor: SPEED_COLORS[grade] }]} />
                     <Text style={[styles.speedText, { color: SPEED_COLORS[grade] }]} numberOfLines={1}>
-                      {formatSpeed(speed)}
+                      {speed ? formatSpeed(speed) : "未测速"}
                     </Text>
                     {item.resolution ? (
                       <Text style={styles.resolutionText} numberOfLines={1}>
