@@ -181,6 +181,8 @@ export const TVPlayerInfoPanel: React.FC<Props> = ({ windowWidth }) => {
 
   const [speeds, setSpeeds] = useState<Record<string, SourceSpeedResult>>({});
   const [testing, setTesting] = useState(false);
+  // 遥控器焦点落在小窗画面上时给个明显边框，否则电视上根本看不出选中了
+  const [videoFocused, setVideoFocused] = useState(false);
   const mountedRef = useRef(true);
   const runIdRef = useRef(0);
 
@@ -261,6 +263,31 @@ export const TVPlayerInfoPanel: React.FC<Props> = ({ windowWidth }) => {
 
   return (
     <View style={styles.root} pointerEvents="box-none">
+      {/* 小窗画面：遥控器可选中，确定键直接放大回全屏 */}
+      <Pressable
+        onPress={enterFullscreen}
+        focusable
+        onFocus={() => setVideoFocused(true)}
+        onBlur={() => setVideoFocused(false)}
+        style={({ pressed }: { pressed: boolean }) => [
+          styles.videoHitArea,
+          {
+            top: box.top,
+            left: box.padding,
+            width: box.width,
+            height: box.height,
+          },
+          (videoFocused || pressed) && styles.videoHitAreaFocused,
+        ]}
+      >
+        {videoFocused ? (
+          <View style={styles.videoHint} pointerEvents="none">
+            <Maximize color="white" size={18} />
+            <Text style={styles.videoHintText}>按确定键全屏</Text>
+          </View>
+        ) : null}
+      </Pressable>
+
       {/* 顶部栏 */}
       <View style={styles.header}>
         <Pressable
@@ -498,6 +525,33 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   fullscreenText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  videoHitArea: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+    borderWidth: 3,
+    borderColor: "transparent",
+    borderRadius: 6,
+  },
+  videoHitAreaFocused: {
+    borderColor: "#ffffff",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  videoHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.62)",
+  },
+  videoHintText: {
     color: "white",
     fontSize: 14,
     fontWeight: "600",
