@@ -16,6 +16,7 @@ import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import useBootStore from "@/stores/bootStore";
 import BootGate from "@/components/BootGate";
 import { UpdateModal } from "@/components/UpdateModal";
+import { UserManagementModal } from "@/components/UserManagementModal";
 import { initUpdateStore, useUpdateStore } from "@/stores/updateStore";
 import { UPDATE_CONFIG, setUpdateChannelOverride } from "@/constants/UpdateConfig";
 import Logger from '@/utils/Logger';
@@ -140,6 +141,7 @@ export default function RootLayout() {
         </View>
         <Toast />
         <LoginModal />
+        <UserManagementModal />
         <RemoteControlModal />
         <UpdateModal />
         <BootGate />

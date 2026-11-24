@@ -2,6 +2,7 @@ import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "@/services/api";
 import { LoginCredentialsManager } from "@/services/storage";
+import { AccountProfileManager } from "@/services/accountProfiles";
 import { isBootRunning } from "@/services/appSession";
 import { useSettingsStore, getServerConfigPromise } from "./settingsStore";
 import Toast from "react-native-toast-message";
@@ -144,10 +145,17 @@ const useAuthStore = create<AuthState>((set, get) => ({
     lastVerifiedAt = 0;
     try {
       await api.logout();
-      set({ isLoggedIn: false, isLoginModalVisible: true });
     } catch (error) {
+      // 服务器没连上也要完成本地登出，否则用户以为退出了、实际下次启动又自动登录
       logger.error("Failed to logout:", error);
     }
+    try {
+      // 退出 = 从本机移除这个账号（含保存的密码），下次启动不会自动登录回来
+      await AccountProfileManager.clearActive();
+    } catch (error) {
+      logger.warn("清理本机账号失败", error);
+    }
+    set({ isLoggedIn: false, isLoginModalVisible: true });
   },
 }));
 

@@ -7,6 +7,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import useHomeStore from "@/stores/homeStore";
 import { api } from "@/services/api";
 import { LoginCredentialsManager } from "@/services/storage";
+import { AccountProfileManager } from "@/services/accountProfiles";
 import { ThemedView } from "./ThemedView";
 import { ThemedText } from "./ThemedText";
 import { StyledButton } from "./StyledButton";
@@ -92,6 +93,10 @@ const LoginModal = () => {
 
       // Save credentials on successful login
       await LoginCredentialsManager.save({ username, password });
+      // 同时记进多账号列表，之后可以在「用户管理」里直接切换回来
+      if (serverConfig?.StorageType !== "localstorage") {
+        await AccountProfileManager.upsert(username, password).catch(() => undefined);
+      }
 
       Toast.show({ type: "success", text1: "登录成功" });
       // hideLoginModal();

@@ -6,10 +6,10 @@ import { ThemedText } from "@/components/ThemedText";
 import { api } from "@/services/api";
 import VideoCard from "@/components/VideoCard";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Search, Settings, LogOut, Heart } from "lucide-react-native";
+import { Search, Settings, Users, Heart } from "lucide-react-native";
 import { StyledButton } from "@/components/StyledButton";
 import useHomeStore, { RowItem, Category } from "@/stores/homeStore";
-import useAuthStore from "@/stores/authStore";
+import { useUserStore } from "@/stores/userStore";
 import CustomScrollView from "@/components/CustomScrollView";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { getCommonResponsiveStyles } from "@/utils/ResponsiveStyles";
@@ -44,7 +44,7 @@ export default function HomeScreen() {
     refreshPlayRecords,
     clearError,
   } = useHomeStore();
-  const { isLoggedIn, logout } = useAuthStore();
+  const openUserModal = useUserStore((state) => state.open);
   const apiConfigStatus = useApiConfig();
 
   useFocusEffect(
@@ -215,11 +215,9 @@ export default function HomeScreen() {
           <StyledButton style={dynamicStyles.iconButton} onPress={() => router.push("/settings")} variant="ghost">
             <Settings color={colorScheme === "dark" ? "white" : "black"} size={24} />
           </StyledButton>
-          {isLoggedIn && (
-            <StyledButton style={dynamicStyles.iconButton} onPress={logout} variant="ghost">
-              <LogOut color={colorScheme === "dark" ? "white" : "black"} size={24} />
-            </StyledButton>
-          )}
+          <StyledButton style={dynamicStyles.iconButton} onPress={openUserModal} variant="ghost">
+            <Users color={colorScheme === "dark" ? "white" : "black"} size={24} />
+          </StyledButton>
         </View>
       </View>
     );
