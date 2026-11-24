@@ -1,25 +1,25 @@
 {
-  "version": "1.4.0",
-  "versionCode": 13,
+  "version": "1.4.1",
+  "versionCode": 14,
   "releasedAt": "2026-11-24",
-  "notes": "1. 新增多用户管理：可保存多个账号并随时切换\n2. 电视端首页右上角「退出」改为「用户管理」\n3. 手机端设置新增「用户管理」入口\n4. 切换账号后自动刷新收藏与播放记录",
+  "notes": "1. 修复「添加账号」页看不到登录按钮（两端）\n2. 修复换线路后最近播放偶发残留两条记录",
   "channels": {
     "tv": {
-      "version": "1.4.0",
+      "version": "1.4.1",
       "abi": "armeabi-v7a",
-      "url": "https://github.com/1240882294/orionTV/releases/download/v1.4.0/OrionTV-TV-1.4.0-armeabi-v7a.apk",
+      "url": "https://github.com/1240882294/orionTV/releases/download/v1.4.1/OrionTV-TV-1.4.1-armeabi-v7a.apk",
       "mirrors": [
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/v1.4.0/OrionTV-TV-1.4.0-armeabi-v7a.apk",
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/v1.4.0/OrionTV-TV-1.4.0-armeabi-v7a.apk"
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/v1.4.1/OrionTV-TV-1.4.1-armeabi-v7a.apk",
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/v1.4.1/OrionTV-TV-1.4.1-armeabi-v7a.apk"
       ]
     },
     "phone": {
-      "version": "1.4.0",
+      "version": "1.4.1",
       "abi": "arm64-v8a",
-      "url": "https://github.com/1240882294/orionTV/releases/download/v1.4.0/OrionTV-Phone-1.4.0-arm64-v8a.apk",
+      "url": "https://github.com/1240882294/orionTV/releases/download/v1.4.1/OrionTV-Phone-1.4.1-arm64-v8a.apk",
       "mirrors": [
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/v1.4.0/OrionTV-Phone-1.4.0-arm64-v8a.apk",
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/v1.4.0/OrionTV-Phone-1.4.0-arm64-v8a.apk"
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/v1.4.1/OrionTV-Phone-1.4.1-arm64-v8a.apk",
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/v1.4.1/OrionTV-Phone-1.4.1-arm64-v8a.apk"
       ]
     }
   }

@@ -342,9 +342,11 @@ export const UserManagementModal: React.FC = () => {
                 disabled={busy}
                 onPress={() => void handleAdd()}
                 style={({ focused }: { focused?: boolean }) => [
-                  styles.footerButton,
+                  // 注意：这里不能用 footerButton（它带 flex:1），
+                  // 纵向布局里 flexBasis:0 会把按钮高度压成一条线，导致「看不到登录按钮」
+                  styles.submitButton,
+                  isTV && styles.submitButtonTV,
                   styles.primaryButton,
-                  { marginTop: 6 },
                   focused && styles.primaryButtonFocused,
                   busy && styles.disabled,
                 ]}
@@ -544,6 +546,21 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 2,
     borderColor: "transparent",
+  },
+  // 纵向堆叠时可用的按钮：显式给高度，不参与 flex 分配
+  submitButton: {
+    height: 50,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 2,
+    borderColor: "transparent",
+    marginTop: 6,
+  },
+  submitButtonTV: {
+    height: 58,
   },
   footerButtonText: {
     color: "white",

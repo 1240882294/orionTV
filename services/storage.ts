@@ -51,6 +51,54 @@ export interface LoginCredentials {
 // --- Helper ---
 const generateKey = (source: string, id: string) => `${source}+${id}`;
 
+// --- 播放记录写入串行化 ---
+// save / remove / 按标题去重 都是「读—改—写」：并发执行时，后写的一方会拿旧快照
+// 整体覆盖回去，把刚删掉的旧线路记录又写活，最近播放里就出现同一部片两条记录。
+// 这里用一条串行队列把它们排队，保证临界区里只有一次读改写。
+let playRecordWriteQueue: Promise<unknown> = Promise.resolve();
+
+const withPlayRecordWriteLock = <T>(task: () => Promise<T>): Promise<T> => {
+  const run = playRecordWriteQueue.then(task, task);
+  playRecordWriteQueue = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+};
+
+const normalizeRecordTitle = (title?: string) => (title || "").replace(/\s+/g, "");
+
+/**
+ * 找出同一部影片挂在其他线路下的记录 key（切源后应当被清掉的旧记录）。
+ * 年份只在两边都有值时才比较，避免旧记录缺年份时把同名不同年的剧误删。
+ */
+const pickStalePlayRecordKeys = (
+  records: Record<string, { title?: string; year?: string } | undefined>,
+  keepKey: string,
+  title?: string,
+  year?: string
+): string[] => {
+  const targetTitle = normalizeRecordTitle(title);
+  if (!targetTitle) return [];
+  const targetYear = (year || "").trim();
+
+  return Object.keys(records).filter((key) => {
+    if (key === keepKey) return false;
+    const record = records[key];
+    if (!record) return false;
+    if (normalizeRecordTitle(record.title) !== targetTitle) return false;
+    const recordYear = (record.year || "").trim();
+    if (targetYear && recordYear && recordYear !== targetYear) return false;
+    return true;
+  });
+};
+
+const splitPlayRecordKey = (key: string): [string, string] | null => {
+  const cut = key.indexOf("+");
+  if (cut <= 0 || cut >= key.length - 1) return null;
+  return [key.slice(0, cut), key.slice(cut + 1)];
+};
+
 // --- PlayerSettingsManager (Uses AsyncStorage) ---
 export class PlayerSettingsManager {
   static async getAll(): Promise<Record<string, PlayerSettings>> {
@@ -223,13 +271,51 @@ export class PlayRecordManager {
     // Player settings are always saved locally
     await PlayerSettingsManager.save(source, id, { introEndTime, outroStartTime });
 
-    if (this.getStorageType() === "localstorage") {
-      const allRecords = await this.getAll();
-      const fullRecord = { ...apiRecord, save_time: Date.now() };
-      allRecords[key] = { ...allRecords[key], ...fullRecord };
-      await AsyncStorage.setItem(STORAGE_KEYS.PLAY_RECORDS, JSON.stringify(allRecords));
-    } else {
-      await api.savePlayRecord(key, apiRecord);
+    await withPlayRecordWriteLock(async () => {
+      if (this.getStorageType() === "localstorage") {
+        const allRecords = await this.readLocalRecords();
+        const fullRecord = { ...apiRecord, save_time: Date.now() };
+        allRecords[key] = { ...allRecords[key], ...fullRecord };
+
+        // 兜底去重：同一部影片换线路后只保留刚写入的这一条。
+        // 放在写锁内与写入同一批完成，避免和删除操作互相覆盖。
+        const staleKeys = pickStalePlayRecordKeys(allRecords, key, apiRecord.title, apiRecord.year);
+        for (const staleKey of staleKeys) {
+          delete allRecords[staleKey];
+        }
+
+        await AsyncStorage.setItem(STORAGE_KEYS.PLAY_RECORDS, JSON.stringify(allRecords));
+
+        for (const staleKey of staleKeys) {
+          const parts = splitPlayRecordKey(staleKey);
+          if (parts) await PlayerSettingsManager.remove(parts[0], parts[1]);
+        }
+      } else {
+        await api.savePlayRecord(key, apiRecord);
+        // 服务端按 key 存储，同样会留下旧线路那条，写入后顺手清掉
+        if (apiRecord.title) {
+          try {
+            const allRecords = await api.getPlayRecords();
+            const staleKeys = pickStalePlayRecordKeys(allRecords, key, apiRecord.title, apiRecord.year);
+            for (const staleKey of staleKeys) {
+              await api.deletePlayRecord(staleKey);
+            }
+          } catch (error) {
+            logger.debug("Failed to prune stale play records on server:", error);
+          }
+        }
+      }
+    });
+  }
+
+  /** 读取本地原始播放记录（不合并播放器设置），供写操作做「读—改—写」 */
+  private static async readLocalRecords(): Promise<Record<string, PlayRecord>> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.PLAY_RECORDS);
+      return data ? JSON.parse(data) : {};
+    } catch (error) {
+      logger.info("Failed to read local play records:", error);
+      return {};
     }
   }
 
@@ -252,13 +338,15 @@ export class PlayRecordManager {
     const key = generateKey(source, id);
     await PlayerSettingsManager.remove(source, id); // Always remove local settings
 
-    if (this.getStorageType() === "localstorage") {
-      const allRecords = await this.getAll();
-      delete allRecords[key];
-      await AsyncStorage.setItem(STORAGE_KEYS.PLAY_RECORDS, JSON.stringify(allRecords));
-    } else {
-      await api.deletePlayRecord(key);
-    }
+    await withPlayRecordWriteLock(async () => {
+      if (this.getStorageType() === "localstorage") {
+        const allRecords = await this.readLocalRecords();
+        delete allRecords[key];
+        await AsyncStorage.setItem(STORAGE_KEYS.PLAY_RECORDS, JSON.stringify(allRecords));
+      } else {
+        await api.deletePlayRecord(key);
+      }
+    });
   }
 
   /**
@@ -267,45 +355,43 @@ export class PlayRecordManager {
    * year 可选：同名不同年的剧（重制版）不会互相误删。
    */
   static async removeDuplicatesByTitle(title: string, keepKey: string, year?: string): Promise<void> {
-    const normalized = (title || "").trim();
-    if (!normalized) return;
-    const normalizedYear = (year || "").trim();
+    if (!(title || "").trim()) return;
 
-    const allRecords = await this.getAll();
-    const staleKeys = Object.keys(allRecords).filter((key) => {
-      if (key === keepKey) return false;
-      const record = allRecords[key];
-      if (!record) return false;
-      if ((record.title || "").trim() !== normalized) return false;
-      if (normalizedYear && (record.year || "").trim() !== normalizedYear) return false;
-      return true;
+    await withPlayRecordWriteLock(async () => {
+      if (this.getStorageType() === "localstorage") {
+        const allRecords = await this.readLocalRecords();
+        const staleKeys = pickStalePlayRecordKeys(allRecords, keepKey, title, year);
+        if (staleKeys.length === 0) return;
+
+        for (const key of staleKeys) {
+          delete allRecords[key];
+        }
+        await AsyncStorage.setItem(STORAGE_KEYS.PLAY_RECORDS, JSON.stringify(allRecords));
+
+        for (const key of staleKeys) {
+          const parts = splitPlayRecordKey(key);
+          if (parts) await PlayerSettingsManager.remove(parts[0], parts[1]);
+        }
+      } else {
+        const allRecords = await api.getPlayRecords();
+        const staleKeys = pickStalePlayRecordKeys(allRecords, keepKey, title, year);
+        for (const key of staleKeys) {
+          await api.deletePlayRecord(key);
+        }
+      }
     });
-    if (staleKeys.length === 0) return;
-
-    if (this.getStorageType() === "localstorage") {
-      for (const key of staleKeys) {
-        delete allRecords[key];
-      }
-      await AsyncStorage.setItem(STORAGE_KEYS.PLAY_RECORDS, JSON.stringify(allRecords));
-      for (const key of staleKeys) {
-        const cut = key.lastIndexOf("+");
-        if (cut > 0) await PlayerSettingsManager.remove(key.slice(0, cut), key.slice(cut + 1));
-      }
-    } else {
-      for (const key of staleKeys) {
-        await api.deletePlayRecord(key);
-      }
-    }
   }
 
   static async clearAll(): Promise<void> {
     await PlayerSettingsManager.clearAll(); // Always clear local settings
 
-    if (this.getStorageType() === "localstorage") {
-      await AsyncStorage.removeItem(STORAGE_KEYS.PLAY_RECORDS);
-    } else {
-      await api.deletePlayRecord();
-    }
+    await withPlayRecordWriteLock(async () => {
+      if (this.getStorageType() === "localstorage") {
+        await AsyncStorage.removeItem(STORAGE_KEYS.PLAY_RECORDS);
+      } else {
+        await api.deletePlayRecord();
+      }
+    });
   }
 }
 

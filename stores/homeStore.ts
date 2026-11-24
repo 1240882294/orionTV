@@ -159,22 +159,23 @@ const useHomeStore = create<HomeState>((set, get) => ({
           return;
         }
         const records = await PlayRecordManager.getAll();
-        const rowItems = Object.entries(records)
-          .map(([key, record]) => {
-            const [source, id] = key.split("+");
-            return {
-              ...record,
-              id,
-              source,
-              progress: record.play_time / record.total_time,
-              poster: record.cover,
-              sourceName: record.source_name,
-              episodeIndex: record.index,
-              totalEpisodes: record.total_episodes,
-              lastPlayed: record.save_time,
-              play_time: record.play_time,
-            };
-          })
+        const recordItems = Object.entries(records).map(([key, record]) => {
+          const [source, id] = key.split("+");
+          return {
+            ...record,
+            id,
+            source,
+            progress: record.play_time / record.total_time,
+            poster: record.cover,
+            sourceName: record.source_name,
+            episodeIndex: record.index,
+            totalEpisodes: record.total_episodes,
+            lastPlayed: record.save_time,
+            play_time: record.play_time,
+          };
+        });
+
+        const rowItems = dedupePlayRecordItems(recordItems)
           // .filter((record) => record.progress !== undefined && record.progress > 0 && record.progress < 1)
           .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
 
@@ -363,5 +364,39 @@ const useHomeStore = create<HomeState>((set, get) => ({
     set({ error: null });
   },
 }));
+
+/**
+ * 最近播放兜底去重：换线路后若历史数据里仍残留旧记录，按「标题 + 年份」收敛成一条，
+ * 只保留最近看的那条，避免同一部片出现两张一样的封面。
+ * 标题为空的记录不参与去重（避免误合并）。
+ */
+const dedupePlayRecordItems = <T extends { title?: string; year?: string; lastPlayed?: number }>(
+  items: T[]
+): T[] => {
+  const result: T[] = [];
+  const indexByTitle = new Map<string, number>();
+
+  for (const item of items) {
+    const title = (item.title || "").replace(/\s+/g, "");
+    if (!title) {
+      result.push(item);
+      continue;
+    }
+
+    const dedupeKey = `${title}|${(item.year || "").trim()}`;
+    const existingIndex = indexByTitle.get(dedupeKey);
+    if (existingIndex === undefined) {
+      indexByTitle.set(dedupeKey, result.length);
+      result.push(item);
+      continue;
+    }
+
+    if ((item.lastPlayed || 0) > (result[existingIndex].lastPlayed || 0)) {
+      result[existingIndex] = item;
+    }
+  }
+
+  return result;
+};
 
 export default useHomeStore;
