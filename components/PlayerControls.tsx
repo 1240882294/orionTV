@@ -1,6 +1,16 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { Pause, Play, SkipForward, List, Tv, ArrowDownToDot, ArrowUpFromDot, Gauge } from "lucide-react-native";
+import {
+  Pause,
+  Play,
+  SkipForward,
+  List,
+  Tv,
+  ArrowDownToDot,
+  ArrowUpFromDot,
+  Gauge,
+  Minimize2,
+} from "lucide-react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { MediaButton } from "@/components/MediaButton";
 
@@ -31,6 +41,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ showControls, se
     setOutroStartTime,
     introEndTime,
     outroStartTime,
+    setIsFullscreen,
   } = usePlayerStore();
 
   const { detail } = useDetailStore();
@@ -55,6 +66,12 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ showControls, se
     if (hasNextEpisode) {
       playEpisode(currentEpisodeIndex + 1);
     }
+  };
+
+  // 缩小为小窗：右侧展开剧集/线路信息，视频继续播不中断
+  const onShrink = () => {
+    setShowControls(false);
+    setIsFullscreen(false);
   };
 
   return (
@@ -117,6 +134,10 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ showControls, se
 
           <MediaButton onPress={() => setShowSourceModal(true)}>
             <Tv color="white" size={24} />
+          </MediaButton>
+
+          <MediaButton onPress={onShrink}>
+            <Minimize2 color="white" size={24} />
           </MediaButton>
         </View>
       </View>

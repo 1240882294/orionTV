@@ -27,6 +27,7 @@ import {
   MOBILE_PLAYER_HEADER_HEIGHT,
   getMobileVideoHeight,
 } from "@/components/MobilePlayerInfoPanel";
+import { TVPlayerInfoPanel, getTVVideoBox } from "@/components/TVPlayerInfoPanel";
 import { EpisodeSelectionModal } from "@/components/EpisodeSelectionModal";
 import { SourceSelectionModal } from "@/components/SourceSelectionModal";
 import { SpeedSelectionModal } from "@/components/SpeedSelectionModal";
@@ -166,8 +167,14 @@ export default function PlayScreen() {
     });
   }, [adFree.blockedSegments, currentEpisode?.url]);
 
-  // TV遥控器处理 - 总是调用hook，但根据设备类型决定是否使用结果
-  const tvRemoteHandler = useTVRemoteHandler();
+  // 首帧先按全屏排，等进入页面的方向设置生效后再判断要不要小窗，避免先闪一下小屏
+  const [layoutReady, setLayoutReady] = useState(false);
+
+  // 电视端小屏模式：视频在左上角小窗，右侧展示剧集资料
+  const tvCompact = isTVDevice && !isFullscreen && !!detail && layoutReady;
+
+  // TV遥控器处理 - 总是调用hook；小屏模式下把方向键让给焦点导航
+  const tvRemoteHandler = useTVRemoteHandler(!tvCompact);
 
   // 手机端进入播放页默认显示控件
   useEffect(() => {
@@ -176,13 +183,18 @@ export default function PlayScreen() {
     }
   }, [isTouchDevice, setShowControls]);
 
-  // 从「最近播放」记录进入时，默认直接横屏全屏播放
+  // 进入播放页即大屏播放：电视端天生满屏，手机端从「最近播放」进来也是横屏全屏
   useEffect(() => {
-    if (!isTouchDevice) return;
+    if (isTVDevice) {
+      setIsFullscreen(true);
+      setLayoutReady(true);
+      return;
+    }
     if (position !== undefined) {
       setIsFullscreen(true);
       setShowControls(true);
     }
+    setLayoutReady(true);
     // 仅在进入页面时判定一次
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -460,6 +472,12 @@ export default function PlayScreen() {
 
   useEffect(() => {
     const backAction = () => {
+      // 电视端大屏时，先缩成小窗（右边能看到剧集/线路）
+      if (isTVDevice && isFullscreen) {
+        setIsFullscreen(false);
+        setShowControls(false);
+        return true;
+      }
       // 手机端全屏时，先退出全屏
       if (isTouchDevice && isFullscreen) {
         setIsFullscreen(false);
@@ -477,7 +495,7 @@ export default function PlayScreen() {
     const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
 
     return () => backHandler.remove();
-  }, [showControls, setShowControls, router, isTouchDevice, isFullscreen, setIsFullscreen]);
+  }, [showControls, setShowControls, router, isTouchDevice, isTVDevice, isFullscreen, setIsFullscreen]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | null = null;
@@ -499,9 +517,10 @@ export default function PlayScreen() {
   }, [isLoading]);
 
   // 竖屏信息面板：退出全屏后显示剧集简介、线路与集数
-  const showInfoPanel = isTouchDevice && !isFullscreen && !!detail;
+  const showInfoPanel = isTouchDevice && !isFullscreen && !!detail && layoutReady;
   const videoTop = MOBILE_PLAYER_HEADER_HEIGHT + insets.top;
   const videoHeight = getMobileVideoHeight(windowWidth);
+  const tvBox = getTVVideoBox(windowWidth);
 
   const videoLayerStyle = showInfoPanel
     ? {
@@ -510,6 +529,16 @@ export default function PlayScreen() {
         left: 0,
         right: 0,
         height: videoHeight,
+        backgroundColor: "black",
+        zIndex: 0,
+      }
+    : tvCompact
+    ? {
+        position: "absolute" as const,
+        top: tvBox.top,
+        left: tvBox.padding,
+        width: tvBox.width,
+        height: tvBox.height,
         backgroundColor: "black",
         zIndex: 0,
       }
@@ -535,7 +564,7 @@ export default function PlayScreen() {
       </View>
 
       {/* 2. 手势 + 点击层：父级接横向滑动快进，子级 Pressable 负责切换控件显隐 */}
-      {!showInfoPanel && (
+      {!showInfoPanel && !tvCompact && (
         <View style={styles.tapLayer} {...(isTouchDevice ? panResponder.panHandlers : {})}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onScreenPress} />
         </View>
@@ -548,8 +577,8 @@ export default function PlayScreen() {
         </View>
       )}
 
-      {/* 4. 控件层：电视端 */}
-      {isTVDevice && showControls && (
+      {/* 4. 控件层：电视端大屏 */}
+      {isTVDevice && isFullscreen && showControls && (
         <View style={styles.tvControlsLayer} pointerEvents="box-none">
           <PlayerControls showControls={showControls} setShowControls={setShowControls} />
         </View>
@@ -563,10 +592,18 @@ export default function PlayScreen() {
       {/* 6. 手机端竖屏信息面板 */}
       {showInfoPanel && <MobilePlayerInfoPanel videoTop={videoTop} videoHeight={videoHeight} />}
 
-      {/* 滑动预览条 */}
-      {!showInfoPanel && <SeekingBar />}
+      {/* 7. 电视端小屏模式：右侧剧集资料 */}
+      {tvCompact && <TVPlayerInfoPanel windowWidth={windowWidth} />}
 
-      {/* 7. 播放前测速遮罩 */}
+      {/* 快进/快退进度提示：手机端给手势用，电视端给遥控器快进键用 */}
+      {!showInfoPanel && !tvCompact && (
+        <SeekingBar
+          sources={isTVDevice ? ["button"] : ["gesture"]}
+          variant={isTVDevice ? "tv" : "mobile"}
+        />
+      )}
+
+      {/* 8. 播放前测速遮罩 */}
       {preparing && (
         <View style={styles.prepareOverlay}>
           <ActivityIndicator size="large" color="#ffffff" />
