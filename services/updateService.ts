@@ -283,8 +283,18 @@ class UpdateService {
    *  5️⃣ 版本比对工具
    * --------------------------------------------------------------- */
   compareVersions(v1: string, v2: string): number {
-    const p1 = v1.split('.').map(Number);
-    const p2 = v2.split('.').map(Number);
+    // 先丢掉 -test.4 / +build 这类后缀，否则「1.3.0」和「1.3.0-test.6」会被拆出 NaN，
+    // 比大小直接失效，测试版用户永远收不到正式版更新。
+    const normalize = (version: string) =>
+      version
+        .split(/[-+]/)[0]
+        .split('.')
+        .map((part) => {
+          const num = parseInt(part, 10);
+          return Number.isFinite(num) ? num : 0;
+        });
+    const p1 = normalize(v1);
+    const p2 = normalize(v2);
     for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
       const n1 = p1[i] ?? 0;
       const n2 = p2[i] ?? 0;

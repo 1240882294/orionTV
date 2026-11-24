@@ -15,6 +15,9 @@ import { RemoteControlModal } from "@/components/RemoteControlModal";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import useBootStore from "@/stores/bootStore";
 import BootGate from "@/components/BootGate";
+import { UpdateModal } from "@/components/UpdateModal";
+import { initUpdateStore, useUpdateStore } from "@/stores/updateStore";
+import { UPDATE_CONFIG } from "@/constants/UpdateConfig";
 import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('RootLayout');
@@ -73,6 +76,35 @@ export default function RootLayout() {
     }
   }, [loaded, error, bootSettled]);
 
+  // 远程更新：启动页结束后静默查一次（12 小时内不重复查），有新版才弹窗
+  useEffect(() => {
+    if (!bootSettled) return;
+    let cancelled = false;
+
+    const checkRemoteUpdate = async () => {
+      await initUpdateStore();
+      if (cancelled) return;
+
+      const { lastCheckTime, skipVersion, checkForUpdate, setShowUpdateModal, remoteVersion } =
+        useUpdateStore.getState();
+      if (Date.now() - lastCheckTime < UPDATE_CONFIG.CHECK_INTERVAL) return;
+
+      // 启动阶段的检查不弹「已是最新版本」的提示
+      const hasUpdate = await checkForUpdate(true);
+      if (cancelled || !hasUpdate) return;
+      if (useUpdateStore.getState().remoteVersion === skipVersion) return;
+      setShowUpdateModal(true);
+      logger.info(`[Update] 发现新版本 ${remoteVersion}`);
+    };
+
+    // 延后 3 秒，别和启动时的账号连接抢带宽
+    const timer = setTimeout(checkRemoteUpdate, 3000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [bootSettled]);
+
   useEffect(() => {
     // 只有在非手机端才启动远程控制服务器
     if (remoteInputEnabled && responsiveConfig.deviceType !== "mobile") {
@@ -103,6 +135,7 @@ export default function RootLayout() {
         <Toast />
         <LoginModal />
         <RemoteControlModal />
+        <UpdateModal />
         <BootGate />
       </ThemeProvider>
     </SafeAreaProvider>
