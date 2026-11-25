@@ -34,6 +34,8 @@ class DetailActivity : AppCompatActivity() {
     private var favorited = false
     private var detailDesc: String = ""
     private var detailMeta: String = ""
+    /** 当前源的基础信息（年份 · 源名），详情元数据在此基础上拼接，避免反复切换源时越拼越长 */
+    private var baseMeta: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,7 +97,8 @@ class DetailActivity : AppCompatActivity() {
         val item = sources.getOrNull(index) ?: return
         current = item
         titleView.text = item.title
-        metaView.text = listOf(item.year, item.sourceName).filter { it.isNotBlank() }.joinToString(" · ")
+        baseMeta = listOf(item.year, item.sourceName).filter { it.isNotBlank() }.joinToString(" · ")
+        metaView.text = baseMeta
 
         Glide.with(this)
             .load(Api.imageUrl(item.poster))
@@ -115,16 +118,16 @@ class DetailActivity : AppCompatActivity() {
     private fun loadDetail(item: SearchItem) {
         Ui.io({ Api.detail(item.source, item.id) }) { result ->
             result.onSuccess { detail ->
+                // 切源后旧请求可能后到，丢弃过期结果
+                if (current?.id != item.id) return@onSuccess
                 detailDesc = detail.desc
                 detailMeta = listOf(detail.year, detail.area, detail.remarks)
                     .filter { it.isNotBlank() }
                     .joinToString(" · ")
                 descView.text = detailDesc
-                if (detailMeta.isNotBlank()) {
-                    metaView.text = listOf(metaView.text.toString(), detailMeta)
-                        .filter { it.isNotBlank() }
-                        .joinToString(" · ")
-                }
+                metaView.text = listOf(baseMeta, detailMeta)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" · ")
                 if (detail.poster.isNotBlank() && item.poster.isBlank()) {
                     Glide.with(this).load(Api.imageUrl(detail.poster)).into(poster)
                 }
