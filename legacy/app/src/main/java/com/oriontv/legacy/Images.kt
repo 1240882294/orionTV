@@ -186,30 +186,35 @@ object Images {
 
     private fun placeholder(view: ImageView, title: String): Bitmap {
         val key = title.take(1).ifBlank { "?" }
-        val w = targetWidth(view).coerceIn(120, 480)
-        val h = targetHeight(view).coerceIn(160, 720)
+        // 占位图只是「没图时能认出是哪部片」，不需要按控件真实尺寸生成：
+        // 320x480 的 RGB_565 一张就 300KB，几十张直接把 4.4 的小堆吃光
+        val w = targetWidth(view).coerceIn(120, 240)
+        val h = targetHeight(view).coerceIn(160, 360)
         val cacheKey = "$key-$w-$h"
         placeholders[cacheKey]?.let { return it }
 
-        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
-        val canvas = Canvas(bitmap)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        paint.shader = LinearGradient(
-            0f, 0f, w.toFloat(), h.toFloat(),
-            Color.rgb(0x1B, 0x24, 0x33), Color.rgb(0x11, 0x1A, 0x26),
-            Shader.TileMode.CLAMP
-        )
-        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-        paint.shader = null
+        val bitmap = runCatching {
+            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
+            val canvas = Canvas(bmp)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+            paint.shader = LinearGradient(
+                0f, 0f, w.toFloat(), h.toFloat(),
+                Color.rgb(0x1B, 0x24, 0x33), Color.rgb(0x11, 0x1A, 0x26),
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            paint.shader = null
 
-        paint.color = Color.rgb(0x35, 0x45, 0x5A)
-        paint.textSize = h * 0.34f
-        paint.typeface = Typeface.DEFAULT_BOLD
-        paint.textAlign = Paint.Align.CENTER
-        val baseline = h / 2f - (paint.descent() + paint.ascent()) / 2f
-        canvas.drawText(key, w / 2f, baseline, paint)
+            paint.color = Color.rgb(0x35, 0x45, 0x5A)
+            paint.textSize = h * 0.34f
+            paint.typeface = Typeface.DEFAULT_BOLD
+            paint.textAlign = Paint.Align.CENTER
+            val baseline = h / 2f - (paint.descent() + paint.ascent()) / 2f
+            canvas.drawText(key, w / 2f, baseline, paint)
+            bmp
+        }.getOrElse { Bitmap.createBitmap(1, 1, Bitmap.Config.RGB_565) }
 
-        if (placeholders.size > 40) placeholders.clear()
+        if (placeholders.size > 10) placeholders.clear()
         placeholders[cacheKey] = bitmap
         return bitmap
     }
