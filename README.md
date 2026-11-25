@@ -18,15 +18,11 @@
 >   | [电视端最新正式版 tv-v3.0.3](../../releases/tag/tv-v3.0.3) | `OrionTV-TV-3.0.3-armeabi-v7a.apk` |
 >   | [电视端测试版 tv-v3.0.5-test.2](../../releases/tag/tv-v3.0.5-test.2) | `OrionTV-TV-3.0.5-test.2-armeabi-v7a.apk`（列表里带 `Pre-release` 标记） |
 >   | [手机端最新正式版 phone-v2.0.4](../../releases/tag/phone-v2.0.4) | `OrionTV-Phone-2.0.4-arm64-v8a.apk` |
->   | [经典版 legacy-v1.0.1-test.2（Android 4.4）](../../releases/tag/legacy-v1.0.1-test.2) | `OrionTV-Legacy-1.0.1-test.2.apk`（独立原生客户端，见 [legacy/](./legacy/README.md)） |
 >
 > ⚠️ 仓库首页右侧的 **Releases** 小卡片只显示一个 `Latest`（当前是电视端 v3.0.3），
 > 手机端和测试版不在那里，必须点上面的「全部版本」。
 >
-> **经典版**是给 Android 4.4 老盒子的独立客户端（Kotlin 原生，包名 `com.oriontv.legacy`），
-> 与主线代码、版本号、Release 完全分开，可与主线同时安装。
->
-> 主线支持 Android 6.0 及以上；经典版支持 Android 4.4 及以上。
+> 主线支持 Android 6.0 及以上。
 
 ## 🔢 版本号与发版规则（重要）
 
