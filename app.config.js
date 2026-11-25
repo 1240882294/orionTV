@@ -24,7 +24,7 @@ const TARGET_SDK = 34;
  */
 const CHANNEL_META = {
   phone: { version: "2.0.4", versionCode: 2004 },
-  tv: { version: "3.0.4-test.1", versionCode: 3004 },
+  tv: { version: "3.0.5-test.2", versionCode: 3005 },
 };
 const BUILD_CHANNEL = process.env.ORION_CHANNEL === "tv" ? "tv" : "phone";
 const APP_VERSION = CHANNEL_META[BUILD_CHANNEL].version;
@@ -68,7 +68,9 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
-    version: config.version ?? APP_VERSION,
+    // 版本号一律按渠道取，不能沿用 app.json / 上次 prebuild 的旧值，
+    // 否则 APK 的 versionName 是 3.0.5-test.2，JS 里读到的却是 1.3.0-test.1
+    version: APP_VERSION,
     platforms: ["android"],
     android: {
       ...android,
