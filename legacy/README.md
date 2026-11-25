@@ -21,7 +21,18 @@ RN 全系最低只到 API 21，Hermes / fabricjni 的原生库更是按 23 编�
 
 ## 功能进度
 
-### v1.0.0-test.1（当前）
+### v1.0.1-test.2（当前）
+
+修了「首页全是空白海报」和「点进详情一直加载、播不了」：
+
+- **图片**：弃用 Glide（4.16 在 API 19 上完全不出图），改为自建 `Images` 加载器
+  （OkHttp + BitmapFactory，内存/磁盘缓存、按控件尺寸降采样、失败画首字占位）
+- **搜索**：读超时 20s → 45s；状态分阶段；失败可点重试
+- **播放**：自实现 `OkHttpDataSource` 替代官方 extension-okhttp（后者 2.18 起要求 API 21），
+  解决 4.4 上 https 源站 TLS 握手失败、UA/Referer 被拒的问题；错误码翻译成中文
+- **网络诊断**：设置 → 网络诊断，六项自检 + 最近请求日志
+
+### v1.0.0-test.1
 
 - 服务器地址配置 + 连接测试（`/api/server-config`）
 - 登录：`localstorage` 模式自动建会话，其余走账号密码
@@ -46,6 +57,10 @@ RN 全系最低只到 API 21，Hermes / fabricjni 的原生库更是按 23 编�
 
 - **ExoPlayer 2.18.7**：Media3 要求 API 21，只能用 2.x 分支。
 - **OkHttp 3.12.13**：最后一个支持 API 19 的版本，自带老系统的 TLS 1.2 适配。
+  图片、接口、播放三条链路共用同一个客户端。
+- **自写 `OkHttpDataSource`**：官方 `extension-okhttp` 2.18 起 minSdk 21，4.4 装不上；
+  自己继承 `BaseDataSource` 包一层 OkHttp，顺带控制 UA / Referer / Range。
+- **不用 Glide**：4.16 在 API 19 上不出图，且独立网络栈不复用连接池。改为 ~200 行自建加载器。
 - **multidex**：API 19 没有原生 multidex，`MultiDexApplication` + `multiDexEnabled true`。
 - **不用协程**：老盒子内存紧张，网络请求用 `Executors` + `Handler`，少一层运行时。
 - **不做资源压缩/混淆**：方便定位线上问题；包体 5.4 MB，可接受。
@@ -68,18 +83,22 @@ JAVA_HOME=/opt/jdk17 ANDROID_HOME=/opt/android-sdk \
 ```
 legacy/
 ├── app/src/main/java/com/oriontv/legacy/
-│   ├── Api.kt              接口与 Cookie 会话
-│   ├── Models.kt           数据模型与 JSON 解析
-│   ├── Prefs.kt            本机配置
-│   ├── MainActivity.kt     启动路由
-│   ├── SetupActivity.kt    服务器配置
-│   ├── LoginActivity.kt    登录
-│   ├── HomeActivity.kt     首页
-│   ├── SearchActivity.kt   搜索
-│   ├── DetailActivity.kt   详情 / 选集 / 换源
-│   ├── PlayerActivity.kt   ExoPlayer 播放
-│   ├── SettingsActivity.kt 设置
-│   ├── PosterAdapter.kt    海报列表
-│   └── ChipAdapter.kt      源 / 集数按钮
-└── app/src/main/res/       布局与焦点样式
+│   ├── Api.kt                接口与 Cookie 会话
+│   ├── Http.kt               共享 OkHttpClient + 请求日志环
+│   ├── Images.kt             海报加载（内存/磁盘缓存、占位）
+│   ├── OkHttpDataSource.kt   ExoPlayer 的 OkHttp 数据源
+│   ├── Models.kt             数据模型与 JSON 解析
+│   ├── Prefs.kt              本机配置
+│   ├── MainActivity.kt       启动路由
+│   ├── SetupActivity.kt      服务器配置
+│   ├── LoginActivity.kt      登录
+│   ├── HomeActivity.kt       首页
+│   ├── SearchActivity.kt     搜索
+│   ├── DetailActivity.kt     详情 / 选集 / 换源
+│   ├── PlayerActivity.kt     ExoPlayer 播放
+│   ├── SettingsActivity.kt   设置
+│   ├── DiagnosticsActivity.kt 网络诊断
+│   ├── PosterAdapter.kt      海报列表
+│   └── ChipAdapter.kt        源 / 集数按钮
+└── app/src/main/res/         布局与焦点样式
 ```
