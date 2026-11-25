@@ -204,6 +204,30 @@ export const MobilePlayerInfoPanel: React.FC<Props> = ({ videoTop, videoHeight, 
         ) : null}
 
         <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>播放列表</Text>
+          <Text style={styles.sectionHint}>
+            共 {episodeCount} 集 · 当前第 {Math.max(1, currentEpisodeIndex + 1)} 集
+          </Text>
+        </View>
+
+        <View style={styles.episodeGrid}>
+          {episodes.map((episode, index) => {
+            const isCurrent = index === currentEpisodeIndex;
+            return (
+              <Pressable
+                key={`episode-${index}`}
+                onPress={() => onSelectEpisode(index)}
+                style={[styles.episodeItem, isCurrent && styles.episodeItemActive]}
+              >
+                <Text style={[styles.episodeText, isCurrent && styles.episodeTextActive]}>
+                  {episode.title || `第 ${index + 1} 集`}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={[styles.sectionHeader, { marginTop: 20 }]}>
           <Text style={styles.sectionTitle}>播放源（{searchResults.length}）</Text>
           <Pressable onPress={runSpeedTest} style={styles.retest} disabled={testing} hitSlop={6}>
             {testing ? (
@@ -250,30 +274,6 @@ export const MobilePlayerInfoPanel: React.FC<Props> = ({ videoTop, videoHeight, 
                     {speed ? formatSpeed(speed) : "未测速"}
                   </Text>
                 </View>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={[styles.sectionHeader, { marginTop: 20 }]}>
-          <Text style={styles.sectionTitle}>播放列表</Text>
-          <Text style={styles.sectionHint}>
-            共 {episodeCount} 集 · 当前第 {Math.max(1, currentEpisodeIndex + 1)} 集
-          </Text>
-        </View>
-
-        <View style={styles.episodeGrid}>
-          {episodes.map((episode, index) => {
-            const isCurrent = index === currentEpisodeIndex;
-            return (
-              <Pressable
-                key={`episode-${index}`}
-                onPress={() => onSelectEpisode(index)}
-                style={[styles.episodeItem, isCurrent && styles.episodeItemActive]}
-              >
-                <Text style={[styles.episodeText, isCurrent && styles.episodeTextActive]}>
-                  {episode.title || `第 ${index + 1} 集`}
-                </Text>
               </Pressable>
             );
           })}

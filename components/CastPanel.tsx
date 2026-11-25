@@ -22,7 +22,6 @@ import {
   Play,
   RotateCcw,
   RotateCw,
-  Tv,
   Wifi,
   X,
 } from "lucide-react-native";
@@ -49,10 +48,8 @@ const formatTime = (seconds: number) => {
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 };
 
-/** 投屏前把地址准备好：DLNA 要把去广告的列表转发出去，互投则交给电视端自己处理 */
-async function prepareUrl(rawUrl: string, device: CastDevice): Promise<string> {
-  if (device.protocol === "orion") return rawUrl;
-
+/** 投屏前把地址准备好：去广告后的本地列表要转成 HTTP 才能给电视访问 */
+async function prepareUrl(rawUrl: string, _device: CastDevice): Promise<string> {
   const adBlockEnabled = useSettingsStore.getState().adBlockEnabled;
   if (!adBlockEnabled || !/\.m3u8(?:[?#]|$)/i.test(rawUrl)) return rawUrl;
 
@@ -230,15 +227,14 @@ export function CastPanel({ visible, onClose }: CastPanelProps) {
           disabled={casting}
         >
           <View style={styles.deviceIcon}>
-            {device.protocol === "orion" ? <Tv color="#8ab4ff" size={18} /> : <Cast color="#8ab4ff" size={18} />}
+            <Cast color="#8ab4ff" size={18} />
           </View>
           <View style={styles.deviceInfo}>
             <Text style={styles.deviceName} numberOfLines={1}>
               {device.name}
             </Text>
             <Text style={styles.deviceMeta} numberOfLines={1}>
-              {device.protocol === "orion" ? "OrionTV 电视端 · 推荐" : `DLNA · ${device.host}`}
-              {device.version ? ` · v${device.version}` : ""}
+              {`DLNA · ${device.host}`}
             </Text>
           </View>
           {casting ? <ActivityIndicator size="small" color="#8ab4ff" /> : null}

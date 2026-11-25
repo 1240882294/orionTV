@@ -8,7 +8,6 @@
  */
 import RNBlobUtil from "react-native-blob-util";
 import TCPHttpServer, { type HttpRequest, type HttpResponse } from "../tcpHttpServer";
-import { getLocalIp } from "./orion";
 import Logger from "@/utils/Logger";
 
 const logger = Logger.withTag("Cast/Playlist");
@@ -26,6 +25,7 @@ export async function publishPlaylist(fileUrl: string): Promise<string> {
   if (starting) return starting;
 
   starting = (async () => {
+    let base: string;
     if (!server) {
       const instance = new TCPHttpServer(PLAYLIST_PORT);
       instance.setRequestHandler((request: HttpRequest): HttpResponse => {
@@ -42,13 +42,14 @@ export async function publishPlaylist(fileUrl: string): Promise<string> {
           body: current ?? "",
         };
       });
-      await instance.start();
+      base = await instance.start();
       server = instance;
       logger.info(`[Cast] playlist server on ${PLAYLIST_PORT}`);
+    } else {
+      // start() 是幂等的，顺便刷新一次本机地址（切换 Wi-Fi 后 IP 会变）
+      base = await server.start();
     }
-    const ip = await getLocalIp();
-    if (!ip) throw new Error("没拿到本机局域网地址");
-    return `http://${ip}:${PLAYLIST_PORT}/playlist.m3u8`;
+    return `${base}/playlist.m3u8`;
   })()
     .catch((error) => {
       logger.info("[Cast] playlist server failed", error);

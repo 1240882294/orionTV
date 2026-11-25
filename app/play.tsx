@@ -127,6 +127,7 @@ export default function PlayScreen() {
     handlePlaybackStatusUpdate,
     setShowControls,
     setIsFullscreen,
+    screenLocked,
     reset,
     loadVideo,
   } = usePlayerStore();
@@ -305,6 +306,47 @@ export default function PlayScreen() {
           }
         },
       }),
+    []
+  );
+
+  // 长按画面右侧：临时 3 倍速，松手恢复。不写入用户偏好，也不改 store 里的 playbackRate
+  const BOOST_RATE = 3;
+  const boostRef = useRef(false);
+  const longPressXRef = useRef(0);
+  const [boosting, setBoosting] = useState(false);
+
+  const rememberTouchX = useCallback((event: { nativeEvent?: { locationX?: number } }) => {
+    longPressXRef.current = event?.nativeEvent?.locationX ?? 0;
+  }, []);
+
+  const startBoost = useCallback(() => {
+    if (!isTouchDevice || screenLocked) return;
+    // 只认右半边：左侧保留「点一下显隐控件」的习惯
+    if (longPressXRef.current < windowWidth * 0.6) return;
+    const state = usePlayerStore.getState();
+    if (!state.status?.isLoaded) return;
+    boostRef.current = true;
+    setBoosting(true);
+    state.videoRef?.current?.setRateAsync(BOOST_RATE, true).catch(() => {});
+  }, [isTouchDevice, screenLocked, windowWidth]);
+
+  const stopBoost = useCallback(() => {
+    if (!boostRef.current) return;
+    boostRef.current = false;
+    setBoosting(false);
+    const state = usePlayerStore.getState();
+    state.videoRef?.current?.setRateAsync(state.playbackRate || 1, true).catch(() => {});
+  }, []);
+
+  // 退出页面时别把 3 倍速留在播放器上
+  useEffect(
+    () => () => {
+      if (boostRef.current) {
+        boostRef.current = false;
+        const state = usePlayerStore.getState();
+        state.videoRef?.current?.setRateAsync(state.playbackRate || 1, true).catch(() => {});
+      }
+    },
     []
   );
 
@@ -634,12 +676,19 @@ export default function PlayScreen() {
         )}
       </View>
 
-      {/* 2. 手势 + 点击层：父级接横向滑动快进，子级 Pressable 负责切换控件显隐 */}
+      {/* 2. 手势 + 点击层：父级接横向滑动快进，子级 Pressable 负责显隐控件 / 长按右半屏 3 倍速 */}
       {!showInfoPanel && !tvCompact && (
-        <View style={styles.tapLayer} {...(isTouchDevice ? panResponder.panHandlers : {})}>
+        <View
+          style={styles.tapLayer}
+          {...(isTouchDevice && !screenLocked ? panResponder.panHandlers : {})}
+        >
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={isTouchDevice ? handleScreenTap : onScreenPress}
+            onPress={isTouchDevice ? (screenLocked ? undefined : handleScreenTap) : onScreenPress}
+            onPressIn={isTouchDevice ? rememberTouchX : undefined}
+            onLongPress={isTouchDevice ? startBoost : undefined}
+            onPressOut={isTouchDevice ? stopBoost : undefined}
+            delayLongPress={380}
           />
         </View>
       )}
@@ -687,6 +736,15 @@ export default function PlayScreen() {
         />
       )}
 
+      {/* 长按右半屏的 3 倍速提示 */}
+      {boosting && (
+        <View style={styles.boostWrap} pointerEvents="none">
+          <View style={styles.boostBadge}>
+            <Text style={styles.boostText}>3× 倍速</Text>
+          </View>
+        </View>
+      )}
+
       {/* 8. 播放前测速遮罩 */}
       {preparing && (
         <View style={styles.prepareOverlay}>
@@ -731,6 +789,25 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 10,
     backgroundColor: "transparent",
+  },
+  boostWrap: {
+    position: "absolute",
+    top: 56,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 45,
+  },
+  boostBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.62)",
+  },
+  boostText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
   },
   loadingContainer: {
     ...StyleSheet.absoluteFillObject,

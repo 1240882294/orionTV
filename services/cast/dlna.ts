@@ -7,9 +7,9 @@
  * 为什么不用现成的 dlna 库：它们大多停在 RN 0.6x，且强行引入一套自己的
  * 设备模型；投屏真正需要的只有 4 个 SOAP 动作，自己写反而更可控。
  */
-import dgram from "react-native-udp";
 import type { CastDevice, CastPlayRequest, CastStatus } from "./types";
 import Logger from "@/utils/Logger";
+import { getUdp, type UdpMessage } from "../../modules/orion-udp";
 
 const logger = Logger.withTag("Cast/DLNA");
 
@@ -98,96 +98,88 @@ function encodeXml(text: string): string {
  *
  * 组播和广播都发一遍：组播是规范要求，但部分路由/ROM 会挡；
  * 广播虽然不合规范，实际测试中电视反而更愿意回。
+ *
+ * UDP 走自研原生模块（modules/orion-udp），拿不到模块时返回空列表而不是抛异常。
  */
-export function discoverDlnaDevices(timeoutMs = 2600): Promise<CastDevice[]> {
-  return new Promise<CastDevice[]>((resolve) => {
-    const seen = new Map<string, CastDevice>();
-    let closed = false;
-    let socket: ReturnType<typeof dgram.createSocket> | null = null;
+export async function discoverDlnaDevices(timeoutMs = 2600): Promise<CastDevice[]> {
+  const udp = getUdp();
+  if (!udp) {
+    logger.info("[DLNA] UDP 模块不可用，无法发现设备");
+    return [];
+  }
 
-    const finish = async () => {
-      if (closed) return;
-      closed = true;
+  const seen = new Map<string, CastDevice>();
+  let subscription: { remove: () => void } | null = null;
+
+  try {
+    await udp.open(0);
+
+    subscription = udp.addListener("onMessage", (message: UdpMessage) => {
+      const text = message.data;
+      if (!/^HTTP\/1\.1 200/i.test(text)) return;
+      const location = /^LOCATION:\s*(.+)$/im.exec(text)?.[1]?.trim();
+      if (!location) return;
+      if (seen.has(location)) return;
+      // 先占位，避免同一个设备回多个 ST 时被反复拉描述
+      seen.set(location, {
+        id: `dlna@${location}`,
+        name: message.address,
+        host: message.address,
+        protocol: "dlna",
+        location,
+      });
+    });
+
+    for (const target of SEARCH_TARGETS) {
+      const payload = [
+        "M-SEARCH * HTTP/1.1",
+        `HOST: ${SSDP_ADDRESS}:${SSDP_PORT}`,
+        'MAN: "ssdp:discover"',
+        "MX: 2",
+        `ST: ${target}`,
+        "",
+        "",
+      ].join("\r\n");
       try {
-        socket?.close();
-      } catch {
-        // 已关闭
+        await udp.send(SSDP_ADDRESS, SSDP_PORT, payload);
+        await udp.send(SSDP_BROADCAST, SSDP_PORT, payload);
+      } catch (error) {
+        logger.debug("[DLNA] send failed", error);
       }
-      resolve(Array.from(seen.values()));
-    };
-
-    try {
-      socket = dgram.createSocket({ type: "udp4" });
-      socket.on("error", (error: Error) => {
-        logger.info("[DLNA] socket error", error);
-        finish();
-      });
-
-      socket.on("message", (data: Buffer, rinfo: { address: string }) => {
-        const text = data.toString("utf8");
-        if (!/^HTTP\/1\.1 200/i.test(text)) return;
-        const location = /^LOCATION:\s*(.+)$/im.exec(text)?.[1]?.trim();
-        if (!location) return;
-        if (seen.has(location)) return;
-        // 先占位，避免同一个设备回多个 ST 时被反复拉描述
-        seen.set(location, {
-          id: `dlna@${location}`,
-          name: rinfo.address,
-          host: rinfo.address,
-          protocol: "dlna",
-          location,
-        });
-      });
-
-      socket.bind(0, () => {
-        for (const target of SEARCH_TARGETS) {
-          const message = Buffer.from(
-            [
-              "M-SEARCH * HTTP/1.1",
-              `HOST: ${SSDP_ADDRESS}:${SSDP_PORT}`,
-              'MAN: "ssdp:discover"',
-              "MX: 2",
-              `ST: ${target}`,
-              "",
-              "",
-            ].join("\r\n")
-          );
-          try {
-            socket?.send(message, 0, message.length, SSDP_PORT, SSDP_ADDRESS, () => {});
-            socket?.send(message, 0, message.length, SSDP_PORT, SSDP_BROADCAST, () => {});
-          } catch (error) {
-            logger.debug("[DLNA] send failed", error);
-          }
-        }
-      });
-    } catch (error) {
-      logger.info("[DLNA] create socket failed", error);
-      finish();
-      return;
     }
 
-    setTimeout(finish, timeoutMs);
-  }).then(async (devices) => {
-    // 补齐设备名与控制地址；拿不到 AVTransport 的直接丢弃（投不了）
-    const enriched = await Promise.all(
-      devices.map(async (device) => {
-        try {
-          const xml = await withTimeout(async (signal) => {
-            const response = await fetch(device.location!, { signal });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return response.text();
-          });
-          const parsed = parseDeviceDescription(xml, device.location!);
-          if (!parsed?.controlUrl || !parsed.name) return null;
-          return { ...device, ...parsed, name: parsed.name } as CastDevice;
-        } catch (error) {
-          logger.debug("[DLNA] describe failed", device.location, error);
-          return null;
-        }
-      })
-    );
-    return enriched.filter((item): item is CastDevice => !!item);
-  });
+    await new Promise<void>((resolve) => setTimeout(resolve, timeoutMs));
+  } catch (error) {
+    logger.info("[DLNA] discover failed", error);
+  } finally {
+    subscription?.remove();
+    try {
+      await udp.close();
+    } catch {
+      // 已关闭
+    }
+  }
+
+  // 补齐设备名与控制地址；拿不到 AVTransport 的直接丢弃（投不了）
+  const enriched = await Promise.all(
+    Array.from(seen.values()).map(async (device) => {
+      try {
+        const xml = await withTimeout(async (signal) => {
+          const response = await fetch(device.location!, { signal });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.text();
+        });
+        const parsed = parseDeviceDescription(xml, device.location!);
+        if (!parsed?.controlUrl || !parsed.name) return null;
+        return { ...device, ...parsed, name: parsed.name } as CastDevice;
+      } catch (error) {
+        logger.debug("[DLNA] describe failed", device.location, error);
+        return null;
+      }
+    })
+  );
+
+  return enriched.filter((item): item is CastDevice => !!item);
 }
 
 /* ------------------------------ SOAP ------------------------------ */

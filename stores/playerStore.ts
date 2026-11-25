@@ -34,6 +34,8 @@ interface PlayerState {
   initialPosition: number;
   playbackRate: number;
   isFullscreen: boolean;
+  /** 屏幕锁：锁上后手势、点击都不响应，只留一个解锁入口 */
+  screenLocked: boolean;
   introEndTime?: number;
   outroStartTime?: number;
   setVideoRef: (ref: RefObject<Video>) => void;
@@ -57,6 +59,7 @@ interface PlayerState {
   setPlaybackRate: (rate: number) => void;
   setIsFullscreen: (fullscreen: boolean) => void;
   toggleFullscreen: () => void;
+  setScreenLocked: (locked: boolean) => void;
   beginSeek: (source?: "gesture" | "slider" | "button") => void;
   updateSeekPreview: (ratio: number, source?: "gesture" | "slider" | "button", deltaMillis?: number) => void;
   commitSeek: (ratio?: number) => Promise<void>;
@@ -90,6 +93,7 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
   initialPosition: 0,
   playbackRate: 1.0,
   isFullscreen: false,
+  screenLocked: false,
   introEndTime: undefined,
   outroStartTime: undefined,
   _seekTimeout: undefined,
@@ -470,6 +474,8 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
 
   toggleFullscreen: () => set({ isFullscreen: !get().isFullscreen }),
 
+  setScreenLocked: (locked) => set({ screenLocked: locked }),
+
   // 手势滑动开始：进入进度预览状态
   beginSeek: (source = "gesture") => {
     const { status } = get();
@@ -565,6 +571,7 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
       initialPosition: 0,
       playbackRate: 1.0,
       isFullscreen: false,
+      screenLocked: false,
       isSeeking: false,
       seekPosition: 0,
       seekSource: null,

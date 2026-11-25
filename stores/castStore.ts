@@ -6,13 +6,11 @@
  * 进度为什么要在这里兜：投屏时播放发生在电视上，手机端的播放器是暂停的，
  * 原来那套 _savePlayRecord 完全不会触发。DLNA 电视又不会自己连服务器，
  * 所以只能由手机端每 5 秒问一次位置，发现设备失联就把最后一次位置写回去。
- * 走 OrionTV 互投时不用管——那份进度由电视端自己上报。
+ * 电视自己不会连服务器，所以在断开/暂停/定时这几个点都要主动回写一次。
  */
 import { create } from "zustand";
 import { CastDevice, CastPlayRequest, CastStatus } from "@/services/cast/types";
-import { discoverDlnaDevices } from "@/services/cast/dlna";
-import { createDlnaController } from "@/services/cast/dlna";
-import { createOrionController, discoverOrionDevices } from "@/services/cast/orion";
+import { createDlnaController, discoverDlnaDevices } from "@/services/cast/dlna";
 import { PlayRecordManager } from "@/services/storage";
 import Logger from "@/utils/Logger";
 
@@ -31,7 +29,7 @@ export interface CastSession {
   year: string;
 }
 
-type Controller = ReturnType<typeof createOrionController> | ReturnType<typeof createDlnaController>;
+type Controller = ReturnType<typeof createDlnaController>;
 
 interface CastState {
   devices: CastDevice[];
@@ -76,11 +74,10 @@ function clearPoll() {
 }
 
 export const useCastStore = create<CastState>((set, get) => {
-  /** 把最后一次已知位置写回服务器（只对 DLNA 通道，orion 由电视自己报） */
+  /** 把最后一次已知位置写回服务器 */
   const reportProgress = async (reason: string) => {
     const { activeDevice, session } = get();
     if (!activeDevice || !session) return;
-    if (activeDevice.protocol !== "dlna") return;
 
     const status = lastGoodStatus;
     if (!status || status.position <= 0) return;
@@ -157,13 +154,7 @@ export const useCastStore = create<CastState>((set, get) => {
       if (get().scanning) return;
       set({ scanning: true, error: null });
       try {
-        // 两条通道并行扫；任一失败不影响另一条
-        const [dlna, orion] = await Promise.all([
-          discoverDlnaDevices().catch(() => [] as CastDevice[]),
-          discoverOrionDevices().catch(() => [] as CastDevice[]),
-        ]);
-        // 电视端投屏优先排前面：它更可靠，用户大概率要选它
-        const devices = [...orion, ...dlna];
+        const devices = await discoverDlnaDevices().catch(() => [] as CastDevice[]);
         set({ devices, scanning: false });
         if (devices.length === 0) {
           set({ error: "没有找到可投屏的设备，确认手机和电视连的是同一个 Wi-Fi。" });
@@ -177,8 +168,7 @@ export const useCastStore = create<CastState>((set, get) => {
     startCast: async (device, request, session) => {
       set({ busy: true, error: null });
       try {
-        controller =
-          device.protocol === "orion" ? createOrionController(device) : createDlnaController(device);
+        controller = createDlnaController(device);
         await controller.play(request);
 
         // 立刻拉一次状态，拿电视给的时长（进度条要用）
@@ -201,7 +191,7 @@ export const useCastStore = create<CastState>((set, get) => {
           activeDevice: null,
           session: null,
           error: /unsupported|不支持/i.test(message)
-            ? "这台电视不支持该片源的格式，可以试试投到装了 OrionTV 的盒子。"
+            ? "这台电视不支持该片源的格式（多数只认 mp4，不认 m3u8）。"
             : `投屏失败：${message}`,
         });
         throw error;
@@ -245,14 +235,10 @@ export const useCastStore = create<CastState>((set, get) => {
       if (!controller) return;
       const clamped = Math.max(0, position);
       try {
-        if (controller.device.protocol === "dlna") {
-          const ok = await (controller as ReturnType<typeof createDlnaController>).trySeek(clamped);
-          if (!ok) {
-            set({ seekSupported: false, error: "这台电视不支持拖动进度，换集或从头播可以用。" });
-            return;
-          }
-        } else {
-          await controller.seek(clamped);
+        const ok = await controller.trySeek(clamped);
+        if (!ok) {
+          set({ seekSupported: false, error: "这台电视不支持拖动进度，换集或从头播可以用。" });
+          return;
         }
         set((state) => ({
           status: state.status ? { ...state.status, position: clamped } : state.status,

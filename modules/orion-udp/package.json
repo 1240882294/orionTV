@@ -1,0 +1,7 @@
+{
+  "name": "orion-udp",
+  "version": "0.1.0",
+  "description": "极简 UDP 组播模块，供 SSDP 投屏发现使用",
+  "main": "index.ts",
+  "private": true
+}

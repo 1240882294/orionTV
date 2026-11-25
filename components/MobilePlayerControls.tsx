@@ -16,12 +16,13 @@ import {
   Pause,
   RotateCcw,
   RotateCw,
-  List,
-  Gauge,
   Maximize,
   Minimize,
-  Tv,
+  SkipBack,
+  SkipForward,
   Cast,
+  Lock,
+  LockOpen,
 } from "lucide-react-native";
 import usePlayerStore from "@/stores/playerStore";
 import useDetailStore from "@/stores/detailStore";
@@ -145,20 +146,19 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
     status,
     episodes,
     currentEpisodeIndex,
-    playbackRate,
     isFullscreen,
     showEpisodeModal,
     showSpeedModal,
     showSourceModal,
+    screenLocked,
     togglePlayPause,
     toggleFullscreen,
+    setScreenLocked,
+    playEpisode,
     seekBy,
     beginSeek,
     updateSeekPreview,
     commitSeek,
-    setShowEpisodeModal,
-    setShowSpeedModal,
-    setShowSourceModal,
     progressPosition,
   } = usePlayerStore();
 
@@ -170,19 +170,29 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
   const isPlaying = status?.isLoaded ? !!status.isPlaying : false;
   const duration = status?.isLoaded ? status.durationMillis || 0 : 0;
   const currentEpisodeTitle = episodes[currentEpisodeIndex]?.title;
-  // 选集 / 倍速 / 线路弹窗打开期间不自动隐藏控件，否则关掉弹窗后一片黑
+  // 弹窗打开期间不自动隐藏控件，否则关掉弹窗后一片黑（锁屏时不隐藏，否则解锁入口会消失）
   const anyModalOpen = showEpisodeModal || showSpeedModal || showSourceModal;
 
   // 播放中 4 秒无操作自动隐藏控件
   useEffect(() => {
-    if (!showControls || !isPlaying || anyModalOpen) return;
+    if (!showControls || !isPlaying || anyModalOpen || screenLocked) return;
     const timer = setTimeout(() => setShowControls(false), 4000);
     return () => clearTimeout(timer);
-  }, [showControls, isPlaying, anyModalOpen, interactionTick, setShowControls]);
+  }, [showControls, isPlaying, anyModalOpen, screenLocked, interactionTick, setShowControls]);
 
   const guard = (fn: () => void) => () => {
     touch();
     fn();
+  };
+
+  const canPrev = currentEpisodeIndex > 0;
+  const canNext = currentEpisodeIndex >= 0 && currentEpisodeIndex < episodes.length - 1;
+
+  const prevEpisode = () => {
+    if (canPrev) playEpisode(currentEpisodeIndex - 1);
+  };
+  const nextEpisode = () => {
+    if (canNext) playEpisode(currentEpisodeIndex + 1);
   };
 
   const onBack = () => {
@@ -211,6 +221,22 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
     },
     [commitSeek]
   );
+
+  // 锁屏：只留解锁入口，其余控件全部不渲染（手势层也由 play.tsx 一并屏蔽）
+  if (screenLocked) {
+    return (
+      <View style={styles.lockOverlay} pointerEvents="box-none">
+        <Pressable
+          onPress={() => setScreenLocked(false)}
+          style={styles.lockButton}
+          hitSlop={12}
+        >
+          <Lock color="white" size={18} />
+          <Text style={styles.lockText}>已锁定 · 点此解锁</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (!showControls) return null;
 
@@ -245,6 +271,13 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
             </Text>
           ) : null}
         </View>
+        <Pressable
+          onPress={guard(() => setScreenLocked(true))}
+          style={styles.iconButton}
+          hitSlop={10}
+        >
+          <LockOpen color="white" size={20} />
+        </Pressable>
         <Pressable onPress={guard(() => toggleFullscreen())} style={styles.iconButton} hitSlop={10}>
           {isFullscreen ? <Minimize color="white" size={22} /> : <Maximize color="white" size={22} />}
         </Pressable>
@@ -295,39 +328,23 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
 
         <View style={styles.actionRow}>
           <Pressable
-            onPress={guard(() => {
-              setShowControls(true);
-              setShowEpisodeModal(true);
-            })}
-            style={styles.actionButton}
+            onPress={guard(prevEpisode)}
+            disabled={!canPrev}
+            style={[styles.actionButton, !canPrev && styles.actionButtonDisabled]}
             hitSlop={6}
           >
-            <List color="white" size={18} />
-            <Text style={styles.actionText}>选集</Text>
+            <SkipBack color="white" size={18} />
+            <Text style={styles.actionText}>上一集</Text>
           </Pressable>
 
           <Pressable
-            onPress={guard(() => {
-              setShowControls(true);
-              setShowSpeedModal(true);
-            })}
-            style={styles.actionButton}
+            onPress={guard(nextEpisode)}
+            disabled={!canNext}
+            style={[styles.actionButton, !canNext && styles.actionButtonDisabled]}
             hitSlop={6}
           >
-            <Gauge color="white" size={18} />
-            <Text style={styles.actionText}>{playbackRate !== 1.0 ? `${playbackRate}x` : "倍速"}</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={guard(() => {
-              setShowControls(true);
-              setShowSourceModal(true);
-            })}
-            style={styles.actionButton}
-            hitSlop={6}
-          >
-            <Tv color="white" size={18} />
-            <Text style={styles.actionText}>线路</Text>
+            <SkipForward color="white" size={18} />
+            <Text style={styles.actionText}>下一集</Text>
           </Pressable>
 
           {onOpenCast ? (
@@ -336,18 +353,13 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
                 setShowControls(true);
                 onOpenCast();
               })}
-              style={[styles.actionButton, styles.actionButtonCompact]}
+              style={styles.actionButton}
               hitSlop={6}
             >
               <Cast color="white" size={18} />
               <Text style={styles.actionText}>投屏</Text>
             </Pressable>
           ) : null}
-
-          <Pressable onPress={guard(() => toggleFullscreen())} style={styles.actionButton} hitSlop={6}>
-            {isFullscreen ? <Minimize color="white" size={18} /> : <Maximize color="white" size={18} />}
-            <Text style={styles.actionText}>{isFullscreen ? "退出全屏" : "全屏"}</Text>
-          </Pressable>
         </View>
       </View>
     </View>
@@ -463,10 +475,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     marginTop: 6,
   },
-  actionButtonCompact: {
-    paddingHorizontal: 8,
-    gap: 3,
-  },
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -476,7 +484,32 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "rgba(0,0,0,0.35)",
   },
+  actionButtonDisabled: {
+    opacity: 0.35,
+  },
   actionText: {
+    color: "white",
+    fontSize: 12,
+  },
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "flex-end",
+    justifyContent: "center",
+    paddingRight: 24,
+    // 压在控件层之上；只有这一个按钮可点，其余触摸交给 play.tsx 的锁定遮罩吃掉
+    zIndex: 40,
+    elevation: 40,
+  },
+  lockButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  lockText: {
     color: "white",
     fontSize: 12,
   },

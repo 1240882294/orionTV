@@ -2,7 +2,7 @@ node_modules/
 .expo/
 dist/
 ios/
-android/
+/android/
 npm-debug.*
 *.jks
 *.p8
@@ -26,3 +26,6 @@ web/**
 .roomodes
 yarn-errors.log
 coverage/
+
+# 本地原生模块的构建产物（模块源码要进仓库，只忽略 build）
+modules/*/android/build/
