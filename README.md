@@ -10,9 +10,12 @@
 > - 版本从 `1.0.0` 起算，改动明细见 [CHANGELOG.md](./CHANGELOG.md)
 > - **2026-11-25 起电视端与手机端独立维护、独立发版，版本号彻底分开**（见下）
 > - 构建环境与步骤见 [BUILD.md](./BUILD.md)
-> - 安装包在 [Releases](../../releases) 页面下载：
->   **电视端** `OrionTV-TV-<版本>-armeabi-v7a.apk`（32 位）；
->   **手机端** `OrionTV-Phone-<版本>-arm64-v8a.apk`（64 位）
+> - 安装包分两个 Release 下载（同一个 Release 里只放本端的包）：
+>
+>   | 端 | 下载 | 文件 |
+>   |---|---|---|
+>   | 电视（32 位） | [tv-v3.0.0](../../releases/tag/tv-v3.0.0) | `OrionTV-TV-3.0.0-armeabi-v7a.apk` |
+>   | 手机（64 位） | [phone-v2.0.0](../../releases/tag/phone-v2.0.0) | `OrionTV-Phone-2.0.0-arm64-v8a.apk` |
 >
 > 当前支持 Android 6.0 及以上。
 
