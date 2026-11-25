@@ -4,6 +4,7 @@ import { ThemedText } from "../ThemedText";
 import { StyledButton } from "../StyledButton";
 import { useUpdateStore } from "@/stores/updateStore";
 import { getUpdateChannel } from "@/constants/UpdateConfig";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
 /**
  * 远程更新
@@ -54,9 +55,14 @@ export function UpdateSection() {
     }
   };
 
-  // 渠道以实时判定为准：布局层可能把电视盒子的渠道钉成 tv，store 里的快照会滞后
+  // 渠道来自安装包本身（构建时固化），不随设备形态变化
   const activeChannel = getUpdateChannel() || channel;
   const channelLabel = activeChannel === "tv" ? "电视版 · 32 位" : "手机版 · 64 位";
+
+  // 32 位的电视包装到手机上也能跑，但界面会按手机布局渲染，
+  // 更新也只会走电视渠道 —— 这里明确提示一下，免得以为装错了版本
+  const { deviceType } = useResponsiveLayout();
+  const installedOnPhone = activeChannel === "tv" && deviceType === "mobile";
 
   return (
     <View style={styles.sectionContainer}>
@@ -66,6 +72,15 @@ export function UpdateSection() {
           <ThemedText style={styles.channelText}>{channelLabel}</ThemedText>
         </View>
       </View>
+
+      {installedOnPhone && (
+        <View style={styles.mismatchBox}>
+          <ThemedText style={styles.mismatchText}>
+            当前安装的是电视版安装包（32 位）。手机上请改装「手机版 · 64 位」，
+            否则界面按手机布局渲染，检查更新也只会拿到电视版。
+          </ThemedText>
+        </View>
+      )}
 
       <View style={styles.row}>
         <ThemedText style={styles.label}>当前版本</ThemedText>
@@ -167,6 +182,19 @@ const styles = StyleSheet.create({
   channelText: {
     fontSize: Platform.isTV ? 14 : 12,
     color: "#4da3ff",
+  },
+  mismatchBox: {
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 159, 10, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 159, 10, 0.35)",
+  },
+  mismatchText: {
+    fontSize: Platform.isTV ? 14 : 12,
+    color: "#ffb340",
+    lineHeight: Platform.isTV ? 22 : 18,
   },
   row: {
     flexDirection: "row",
