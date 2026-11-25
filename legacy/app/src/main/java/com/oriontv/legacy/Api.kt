@@ -31,12 +31,9 @@ object Api {
     var baseUrl: String = ""
         private set
 
+    /** 复用全局连接池，仅挂上会话 cookie */
     private val client: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .writeTimeout(20, TimeUnit.SECONDS)
-            .retryOnConnectionFailure(true)
+        Http.client.newBuilder()
             .cookieJar(object : CookieJar {
                 override fun saveFromResponse(url: HttpUrl, cookies: MutableList<Cookie>) {
                     synchronized(cookieStore) {
@@ -55,6 +52,9 @@ object Api {
     }
 
     fun isConfigured(): Boolean = baseUrl.isNotBlank()
+
+    /** 播放器的数据源也复用这条连接（保留 cookie，带正确 UA） */
+    fun httpClient(): OkHttpClient = client
 
     fun setBaseUrl(input: String) {
         var url = input.trim()
@@ -96,11 +96,15 @@ object Api {
         if (baseUrl.isBlank()) throw ApiException("请先设置服务器地址", "not-configured")
         val request = Request.Builder()
             .url(baseUrl + path)
+            .header("User-Agent", Http.UA)
+            .header("Accept", "application/json, text/plain, */*")
             .method(method, body)
             .build()
 
         val response = try {
             client.newCall(request).execute()
+        } catch (e: java.net.SocketTimeoutException) {
+            throw ApiException("请求超时（资源站响应太慢），请重试", "timeout")
         } catch (e: IOException) {
             throw ApiException("网络连接失败，请检查网络或服务器地址", "network")
         }
@@ -230,13 +234,25 @@ object Api {
 
     // ---- 工具 ----
 
+    /**
+     * 图片一律走服务端代理：4.4 的系统 socket 默认不协商 TLS 1.2，
+     * 豆瓣图床那种只支持 TLS 1.2+ 的站直连必然握手失败，表现就是「全是空白」。
+     * 代理地址是局域网 http，稳定得多。
+     */
     fun imageUrl(raw: String): String {
-        if (raw.isBlank()) return raw
-        if (!raw.startsWith("http")) return raw
-        return baseUrl + "/api/image-proxy?url=" + encode(raw)
+        val value = raw.trim()
+        if (value.isEmpty()) return ""
+        if (value.contains("/api/image-proxy")) return value
+        val absolute = when {
+            value.startsWith("//") -> "https:$value"
+            value.startsWith("http") -> value
+            else -> return value
+        }
+        if (baseUrl.isBlank()) return absolute
+        return baseUrl + "/api/image-proxy?url=" + encode(absolute)
     }
 
-    private fun encode(value: String): String = try {
+    fun encode(value: String): String = try {
         URLEncoder.encode(value, "UTF-8")
     } catch (e: UnsupportedEncodingException) {
         value
