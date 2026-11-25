@@ -18,7 +18,7 @@ import BootGate from "@/components/BootGate";
 import { UpdateModal } from "@/components/UpdateModal";
 import { UserManagementModal } from "@/components/UserManagementModal";
 import { initUpdateStore, useUpdateStore } from "@/stores/updateStore";
-import { UPDATE_CONFIG, setUpdateChannelOverride } from "@/constants/UpdateConfig";
+import { UPDATE_CONFIG } from "@/constants/UpdateConfig";
 import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('RootLayout');
@@ -77,12 +77,9 @@ export default function RootLayout() {
     }
   }, [loaded, error, bootSettled]);
 
-  // 电视盒子常常识别不出 Platform.isTV，这里按布局判定把更新渠道钉成 tv，
-  // 否则会去下 64 位包，32 位盒子装不上
+  // 渠道由安装包自带的 versionName 决定（见 constants/UpdateConfig.ts），
+  // 不随设备形态变化，这里只需在布局稳定后刷新一次「当前版本」。
   useEffect(() => {
-    setUpdateChannelOverride(responsiveConfig.deviceType === "tv" ? "tv" : null);
-    // 两端版本号已分开，渠道确定后要立刻刷新「当前版本」，
-    // 否则设置页会显示启动时按 Platform.isTV 猜出来的那一端版本号
     useUpdateStore.getState().refreshChannel();
   }, [responsiveConfig.deviceType]);
 
