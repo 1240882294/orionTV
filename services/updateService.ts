@@ -456,7 +456,7 @@ class UpdateService {
     try {
       await AsyncStorage.setItem(
         DOWNLOAD_CACHE_KEY,
-        JSON.stringify({ version, path, at: Date.now() }),
+        JSON.stringify({ version, channel: getUpdateChannel(), path, at: Date.now() }),
       );
     } catch {
       // 记不住不影响使用
@@ -468,8 +468,10 @@ class UpdateService {
     try {
       const raw = await AsyncStorage.getItem(DOWNLOAD_CACHE_KEY);
       if (!raw) return null;
-      const saved = JSON.parse(raw) as { version?: string; path?: string };
+      const saved = JSON.parse(raw) as { version?: string; channel?: string; path?: string };
       if (!saved?.version || saved.version !== version || !saved.path) return null;
+      // 版本号两端不会重复，但缓存里补一层渠道校验，避免跨渠道复用到另一端的包
+      if (saved.channel && saved.channel !== getUpdateChannel()) return null;
       const info = await FileSystem.getInfoAsync(saved.path);
       return info.exists ? saved.path : null;
     } catch {
