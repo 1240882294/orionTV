@@ -1,8 +1,8 @@
 {
-  "version": "2.0.1",
-  "versionCode": 2001,
+  "version": "2.0.2",
+  "versionCode": 2002,
   "releasedAt": "2026-11-25",
-  "notes": "修复更新下载极慢：下载前测速择优 + 低速自动换线 + 安装包完整性校验。两端各自独立发版。",
+  "notes": "手机端 v2.0.2：全屏双击画面暂停/继续播放（电视端仍为 3.0.1，未变动）。",
   "channels": {
     "tv": {
       "version": "3.0.1",
@@ -19,17 +19,17 @@
       ]
     },
     "phone": {
-      "version": "2.0.1",
-      "versionCode": 2001,
+      "version": "2.0.2",
+      "versionCode": 2002,
       "releasedAt": "2026-11-25",
       "abi": "arm64-v8a",
-      "size": 26562187,
-      "md5": "453999486940c8850f7774ee210ff785",
-      "notes": "修复更新下载极慢：下载前测速择优、低速自动换线、安装包 MD5 校验。无功能变更。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.0.1/OrionTV-Phone-2.0.1-arm64-v8a.apk",
+      "size": 26562673,
+      "md5": "5cfdfc8598378d8a10fc873b8c5c1b12",
+      "notes": "新增：全屏播放时双击画面暂停/继续播放，双击会闪一下图标反馈；单击仍是显隐控件。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.0.2/OrionTV-Phone-2.0.2-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.0.1/OrionTV-Phone-2.0.1-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.0.1/OrionTV-Phone-2.0.1-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.0.2/OrionTV-Phone-2.0.2-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.0.2/OrionTV-Phone-2.0.2-arm64-v8a.apk"
       ]
     }
   }

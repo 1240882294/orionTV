@@ -41,12 +41,16 @@ import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { useVideoHandlers } from "@/hooks/useVideoHandlers";
 import { useAdFreePlayback } from "@/hooks/useAdFreePlayback";
 import { testSourcesSpeed, speedOf, getCachedSpeeds, setCachedSpeeds } from "@/services/sourceSpeedTest";
+import { Play, Pause } from "lucide-react-native";
 import Logger from "@/utils/Logger";
 
 const logger = Logger.withTag("PlayScreen");
 
 // 手势横向满屏滑动对应的时长（毫秒）—— 5 分钟，兼顾精度与跨度
 const SWIPE_FULL_WIDTH_MS = 5 * 60 * 1000;
+
+// 双击判定窗口：两次点击间隔小于它算双击（暂停/播放），否则算单击（显隐控件）
+const DOUBLE_TAP_MS = 260;
 
 /** 播放前测速的整体等待上限：再慢也要先播起来 */
 const PREPARE_TIMEOUT_MS = 8000;
@@ -456,6 +460,69 @@ export default function PlayScreen() {
     }
   }, [isTVDevice, tvRemoteHandler, setShowControls, showControls]);
 
+  /**
+   * 双击暂停/播放。
+   *
+   * RN 的 Pressable 没有 numberOfTaps，所以自己按时间差判定：
+   * 单击延迟 DOUBLE_TAP_MS 再执行（显隐控件），期间来了第二次点击就取消这次单击、
+   * 改成切换播放状态 —— 这样双击不会顺带把控件闪一下。
+   */
+  const lastTapAtRef = useRef(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 双击后居中闪一下播放/暂停图标，让用户确定操作生效了
+  const [tapHint, setTapHint] = useState<"play" | "pause" | null>(null);
+  const tapHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleScreenTap = useCallback(() => {
+    const now = Date.now();
+    const isDoubleTap = now - lastTapAtRef.current < DOUBLE_TAP_MS;
+
+    if (isDoubleTap) {
+      // 清掉时间戳，避免第三次点击又被判成双击
+      lastTapAtRef.current = 0;
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      const state = usePlayerStore.getState();
+      if (!state.status?.isLoaded) return;
+      // 点击前是暂停态 → 接下来会播放，反之亦然
+      const willPlay = !state.status.isPlaying;
+      void state.togglePlayPause();
+      // 暂停后把控件亮出来，用户能直接看到进度和播放键
+      state.setShowControls(true);
+      setTapHint(willPlay ? "play" : "pause");
+      if (tapHintTimerRef.current) clearTimeout(tapHintTimerRef.current);
+      tapHintTimerRef.current = setTimeout(() => {
+        tapHintTimerRef.current = null;
+        setTapHint(null);
+      }, 420);
+      return;
+    }
+
+    lastTapAtRef.current = now;
+    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+    singleTapTimerRef.current = setTimeout(() => {
+      singleTapTimerRef.current = null;
+      onScreenPress();
+    }, DOUBLE_TAP_MS);
+  }, [onScreenPress]);
+
+  // 离开页面时别留着未执行的单击定时器
+  useEffect(
+    () => () => {
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      if (tapHintTimerRef.current) {
+        clearTimeout(tapHintTimerRef.current);
+        tapHintTimerRef.current = null;
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === "background" || nextAppState === "inactive") {
@@ -566,7 +633,23 @@ export default function PlayScreen() {
       {/* 2. 手势 + 点击层：父级接横向滑动快进，子级 Pressable 负责切换控件显隐 */}
       {!showInfoPanel && !tvCompact && (
         <View style={styles.tapLayer} {...(isTouchDevice ? panResponder.panHandlers : {})}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={onScreenPress} />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={isTouchDevice ? handleScreenTap : onScreenPress}
+          />
+        </View>
+      )}
+
+      {/* 2.1 双击暂停/播放的短暂反馈：居中闪一下图标，不接收触摸 */}
+      {tapHint && (
+        <View style={styles.tapHint} pointerEvents="none">
+          <View style={styles.tapHintBubble}>
+            {tapHint === "pause" ? (
+              <Pause color="#ffffff" size={44} fill="#ffffff" />
+            ) : (
+              <Play color="#ffffff" size={44} fill="#ffffff" />
+            )}
+          </View>
         </View>
       )}
 
@@ -642,6 +725,20 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 10,
     backgroundColor: "transparent",
+  },
+  tapHint: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
+  },
+  tapHintBubble: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingContainer: {
     ...StyleSheet.absoluteFillObject,
