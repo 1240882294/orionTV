@@ -2,19 +2,27 @@ package com.oriontv.legacy
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.View
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.source.DefaultMediaSourceFactory
 import com.google.android.exoplayer2.ui.PlayerView
 
 class PlayerActivity : AppCompatActivity() {
     private var player: ExoPlayer? = null
     private var meta: PlayMeta? = null
+    private var currentUrl: String = ""
     private var nextUrl: String? = null
+    private lateinit var errorView: TextView
+    private lateinit var tipView: TextView
 
     private val handler = Handler(Looper.getMainLooper())
     private val saveTask = object : Runnable {
@@ -48,34 +56,90 @@ class PlayerActivity : AppCompatActivity() {
         val view = findViewById<PlayerView>(R.id.player)
         view.controllerShowTimeoutMs = 3500
         view.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+        errorView = findViewById(R.id.error)
+        tipView = findViewById(R.id.tip)
 
-        val exo = ExoPlayer.Builder(this).build()
+        // 播放失败时给出可读原因，而不是黑屏干等
+        errorView.setOnClickListener { errorView.visibility = View.GONE; start(url) }
+
+        start(url)
+        handler.postDelayed(saveTask, 15_000)
+    }
+
+    private fun start(url: String) {
+        currentUrl = url
+        errorView.visibility = View.GONE
+        tipView.visibility = View.VISIBLE
+        tipView.text = "正在连接 ${Host.of(url)} …"
+
+        player?.release()
+
+        // 关键：用 OkHttp 当数据源。Android 4.4 自带的 HttpURLConnection
+        // 只协商 TLS 1.0，https 的 m3u8 会直接握手失败（表现为一直黑屏）。
+        val dataSource = OkHttpDataSource.Factory(Api.httpClient())
+
+        val exo = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
+            .build()
         player = exo
-        view.player = exo
+        findViewById<PlayerView>(R.id.player).player = exo
 
         exo.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) {
-                    persist()
-                    val next = nextUrl
-                    if (!next.isNullOrBlank()) {
-                        val m = meta ?: return
-                        val newIndex = m.index + 1
-                        startActivity(
-                            buildIntent(
-                                this@PlayerActivity, next, m.copy(index = newIndex)
-                            )
-                        )
-                        finish()
+                when (state) {
+                    Player.STATE_BUFFERING -> {
+                        tipView.visibility = View.VISIBLE
+                        tipView.text = "缓冲中…"
+                    }
+                    Player.STATE_READY -> tipView.visibility = View.GONE
+                    Player.STATE_ENDED -> {
+                        persist()
+                        val next = nextUrl
+                        if (!next.isNullOrBlank()) {
+                            val m = meta ?: return
+                            startActivity(buildIntent(this@PlayerActivity, next, m.copy(index = m.index + 1)))
+                            finish()
+                        } else {
+                            tipView.visibility = View.VISIBLE
+                            tipView.text = "播放结束"
+                        }
                     }
                 }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                tipView.visibility = View.GONE
+                errorView.visibility = View.VISIBLE
+                errorView.text = describe(error)
+                NetLog.add("PLAYER ${error.errorCode} ${error.errorCodeName} ${Host.of(currentUrl)}")
             }
         })
 
         exo.setMediaItem(MediaItem.fromUri(url))
         exo.prepare()
         exo.playWhenReady = true
-        handler.postDelayed(saveTask, 15_000)
+    }
+
+    /** 把 ExoPlayer 的错误码翻译成用户能看懂的话 */
+    private fun describe(error: PlaybackException): String {
+        val base = when (error.errorCode) {
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
+                "网络连接失败：源站连不上或被防火墙拦截"
+            PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
+                "源站返回错误状态码（可能是链接过期或需要 Referer）"
+            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "视频地址不存在（404）"
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+            PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ->
+                "视频格式不对，可能不是有效的 m3u8"
+            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+            PlaybackException.ERROR_CODE_DECODING_FAILED ->
+                "本机解码器不支持该编码（老盒子常见：HEVC/H.265、4K）"
+            PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ->
+                "编码格式不支持，建议换一个播放源"
+            else -> "播放失败"
+        }
+        return "$base\n（错误码 ${error.errorCode}，点此重试）\n${Host.of(currentUrl)}"
     }
 
     override fun onStop() {
@@ -133,6 +197,15 @@ class PlayerActivity : AppCompatActivity() {
         val index: Int,
         val total: Int
     )
+
+    private object Host {
+        fun of(url: String): String = runCatching {
+            val uri = Uri.parse(url)
+            val scheme = uri.scheme ?: "http"
+            val host = uri.host ?: return@runCatching url
+            "$scheme://$host/"
+        }.getOrDefault(url)
+    }
 
     companion object {
         private const val EXTRA_URL = "url"
