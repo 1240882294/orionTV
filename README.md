@@ -10,12 +10,17 @@
 > - 版本从 `1.0.0` 起算，改动明细见 [CHANGELOG.md](./CHANGELOG.md)
 > - **2026-11-25 起电视端与手机端独立维护、独立发版，版本号彻底分开**（见下）
 > - 构建环境与步骤见 [BUILD.md](./BUILD.md)
-> - 安装包分两个 Release 下载（同一个 Release 里只放本端的包）：
+> - 安装包在 **Releases** 里下载（同一个 Release 只放本端的包）。点下面任一入口即可：
 >
->   | 端 | 下载 | 文件 |
->   |---|---|---|
->   | 电视（32 位） | [tv-v3.0.0](../../releases/tag/tv-v3.0.0) | `OrionTV-TV-3.0.0-armeabi-v7a.apk` |
->   | 手机（64 位） | [phone-v2.0.0](../../releases/tag/phone-v2.0.0) | `OrionTV-Phone-2.0.0-arm64-v8a.apk` |
+>   | 入口 | 内容 |
+>   |---|---|
+>   | [📦 全部版本 / All Releases](../../releases) | 所有正式版 + 测试版都在这页；**手机端请从这里进** |
+>   | [电视端最新正式版 tv-v3.0.3](../../releases/tag/tv-v3.0.3) | `OrionTV-TV-3.0.3-armeabi-v7a.apk` |
+>   | [电视端测试版 tv-v3.0.4-test.1](../../releases/tag/tv-v3.0.4-test.1) | `OrionTV-TV-3.0.4-test.1-armeabi-v7a.apk`（列表里带 `Pre-release` 标记） |
+>   | [手机端最新正式版 phone-v2.0.4](../../releases/tag/phone-v2.0.4) | `OrionTV-Phone-2.0.4-arm64-v8a.apk` |
+>
+> ⚠️ 仓库首页右侧的 **Releases** 小卡片只显示一个 `Latest`（当前是电视端 v3.0.3），
+> 手机端和测试版不在那里，必须点上面的「全部版本」。
 >
 > 当前支持 Android 6.0 及以上。
 
@@ -23,10 +28,13 @@
 
 两端虽然共用同一份代码，但**版本号、更新清单、Release 全部独立**：
 
-| 端 | 版本号规则 | 当前版本 | versionCode | Release tag |
-|---|---|---|---|---|
-| 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.0.0` | 2000 | `phone-v2.0.0` |
-| 电视 | **主版本号取奇数**（3.x、5.x、7.x…） | `3.0.0` | 3000 | `tv-v3.0.0` |
+| 端 | 版本号规则 | 当前正式版 | 测试版 | versionCode | Release tag |
+|---|---|---|---|---|---|
+| 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.0.4` | — | 2004 | `phone-v2.0.4` |
+| 电视 | **主版本号取奇数**（3.x、5.x、7.x…） | `3.0.3` | `3.0.4-test.1` | 3003 / 3004 | `tv-v3.0.3` / `tv-v3.0.4-test.1` |
+
+> 测试版用 `x.y.z-test.n` 命名，Release 勾选 **Pre-release**，不计入 `Latest`，
+> 只有主动打开对应 tag 才能装到；测试通过后把同一份代码改成正式版本号再发一次。
 
 一奇一偶，两端版本号永远不可能相同，也不会出现「手机端收到电视端更新日志」的情况。
 
@@ -45,8 +53,8 @@
 
 | 端 | 架构 | 安装包 | 界面 | 更新渠道 | 当前版本 |
 |---|---|---|---|---|---|
-| 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` | `3.0.0` |
-| 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` | `2.0.0` |
+| 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` | `3.0.3`（测试版 `3.0.4-test.1`） |
+| 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` | `2.0.4` |
 
 远程管理（扫码输入）只在电视 / 平板端显示；手机端作为输入设备使用。
 
@@ -59,24 +67,30 @@
 
 ```json
 {
-  "version": "2.0.0",
+  "version": "2.0.4",
   "notes": "顶层字段仅作旧客户端兜底",
   "channels": {
     "tv": {
-      "version": "3.0.0",
+      "version": "3.0.3",
+      "versionCode": 3003,
       "notes": "电视端更新说明（手机端看不到）",
-      "url": ".../releases/download/tv-v3.0.0/OrionTV-TV-3.0.0-armeabi-v7a.apk",
-      "mirrors": ["..."]
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.3/OrionTV-TV-3.0.3-armeabi-v7a.apk",
+      "mirrors": ["https://gh-proxy.com/https://github.com/..."]
     },
     "phone": {
-      "version": "2.0.0",
+      "version": "2.0.4",
+      "versionCode": 2004,
       "notes": "手机端更新说明（电视端看不到）",
-      "url": ".../releases/download/phone-v2.0.0/OrionTV-Phone-2.0.0-arm64-v8a.apk",
-      "mirrors": ["..."]
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.0.4/OrionTV-Phone-2.0.4-arm64-v8a.apk",
+      "mirrors": ["https://gh-proxy.com/https://github.com/..."]
     }
   }
 }
 ```
+
+> 想只发给测试机、不打扰正式用户时，**不要把测试版号写进这里**：
+> `version.json` 里的 `version` 一旦高于线上版本，该端所有用户点「检查更新」都会收到提示。
+> 测试版直接发到对应 tag，让人手动装 APK 即可。
 
 电视端只读 `channels.tv`，手机端只读 `channels.phone`，更新日志也各用各的 `notes`。
 只改一端时，另一端的 `version` 原样保留，那边不会收到任何更新提示。
