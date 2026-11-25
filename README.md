@@ -16,7 +16,7 @@
 >   |---|---|
 >   | [📦 全部版本 / All Releases](../../releases) | 所有正式版 + 测试版都在这页；**手机端请从这里进** |
 >   | [电视端最新正式版 tv-v3.0.3](../../releases/tag/tv-v3.0.3) | `OrionTV-TV-3.0.3-armeabi-v7a.apk` |
->   | [电视端测试版 tv-v3.0.4-test.1](../../releases/tag/tv-v3.0.4-test.1) | `OrionTV-TV-3.0.4-test.1-armeabi-v7a.apk`（列表里带 `Pre-release` 标记） |
+>   | [电视端测试版 tv-v3.0.5-test.2](../../releases/tag/tv-v3.0.5-test.2) | `OrionTV-TV-3.0.5-test.2-armeabi-v7a.apk`（列表里带 `Pre-release` 标记） |
 >   | [手机端最新正式版 phone-v2.0.4](../../releases/tag/phone-v2.0.4) | `OrionTV-Phone-2.0.4-arm64-v8a.apk` |
 >
 > ⚠️ 仓库首页右侧的 **Releases** 小卡片只显示一个 `Latest`（当前是电视端 v3.0.3），
@@ -31,7 +31,7 @@
 | 端 | 版本号规则 | 当前正式版 | 测试版 | versionCode | Release tag |
 |---|---|---|---|---|---|
 | 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.0.4` | — | 2004 | `phone-v2.0.4` |
-| 电视 | **主版本号取奇数**（3.x、5.x、7.x…） | `3.0.3` | `3.0.4-test.1` | 3003 / 3004 | `tv-v3.0.3` / `tv-v3.0.4-test.1` |
+| 电视 | **主版本号取奇数**（3.x、5.x、7.x…） | `3.0.3` | `3.0.5-test.2` | 3003 / 3005 | `tv-v3.0.3` / `tv-v3.0.5-test.2` |
 
 > 测试版用 `x.y.z-test.n` 命名，Release 勾选 **Pre-release**，不计入 `Latest`，
 > 只有主动打开对应 tag 才能装到；测试通过后把同一份代码改成正式版本号再发一次。
@@ -40,9 +40,11 @@
 
 发版时只动自己那一端：
 
-1. 改 `constants/UpdateConfig.ts` 的 `CHANNEL_VERSIONS` 与 `app.config.js` 的 `CHANNEL_META` 中**对应渠道**那一行；
+1. 改 `app.config.js` 的 `CHANNEL_META` 与 `scripts/apply-build-info.js` 的 `DEFAULT_META` 中**对应渠道**那一行（两处保持一致）；
 2. 只改 `version.json` 里**对应渠道**节点（另一端的 `version` 保持不动，那边就不会弹更新）；
-3. 只打这一端的包，只在对应的 tag（`tv-vX.Y.Z` / `phone-vX.Y.Z`）建 Release，只上传这一个 APK。
+3. 打这一端的包之前先固化渠道：`ORION_CHANNEL=tv ORION_VERSION=x.y.z ORION_VERSION_CODE=nnnn node scripts/apply-build-info.js`，
+   它会重写 `src/constants/BuildInfo.ts` —— APK 里显示的版本号和更新渠道都取自这里；
+4. 只在对应的 tag（`tv-vX.Y.Z` / `phone-vX.Y.Z`）建 Release，只上传这一个 APK。
 
 修复电视端 bug 时，手机端版本号、`version.json` 的 `phone` 节点、手机端 Release 都不动，手机用户不会收到任何提示。
 
@@ -53,7 +55,7 @@
 
 | 端 | 架构 | 安装包 | 界面 | 更新渠道 | 当前版本 |
 |---|---|---|---|---|---|
-| 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` | `3.0.3`（测试版 `3.0.4-test.1`） |
+| 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` | `3.0.3`（测试版 `3.0.5-test.2`） |
 | 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` | `2.0.4` |
 
 远程管理（扫码输入）只在电视 / 平板端显示；手机端作为输入设备使用。
