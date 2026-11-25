@@ -115,12 +115,12 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // 两端独立发版，版本号由构建脚本通过环境变量注入（与 app.config.js 的 CHANNEL_META 一致）：
-        //   TV    ORION_VERSION=3.0.0 ORION_VERSION_CODE=3000
+        //   TV    ORION_VERSION=3.0.2 ORION_VERSION_CODE=3002
         //   Phone ORION_VERSION=2.0.0 ORION_VERSION_CODE=2000
         // 不传时按手机端兜底，避免误出成电视端版本号。
         // 先落到局部变量再赋值：`versionCode (expr).toInteger()` 会被 Groovy 解析错，报 Value is null。
         def orionVersionCode = (System.getenv("ORION_VERSION_CODE") ?: "2003").toInteger()
-        def orionVersionName = System.getenv("ORION_VERSION") ?: "2.0.0"
+        def orionVersionName = System.getenv("ORION_VERSION") ?: "2.0.3"
         versionCode orionVersionCode
         versionName orionVersionName
 

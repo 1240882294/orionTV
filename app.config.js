@@ -24,7 +24,7 @@ const TARGET_SDK = 34;
  */
 const CHANNEL_META = {
   phone: { version: "2.0.3", versionCode: 2003 },
-  tv: { version: "3.0.1", versionCode: 3001 },
+  tv: { version: "3.0.2", versionCode: 3002 },
 };
 const BUILD_CHANNEL = process.env.ORION_CHANNEL === "tv" ? "tv" : "phone";
 const APP_VERSION = CHANNEL_META[BUILD_CHANNEL].version;

@@ -418,13 +418,24 @@ class UpdateService {
         data: `package:${pkg}`,
       });
     } catch {
+      let opened = false;
       try {
         // 部分定制系统没有上面那个页面，退回应用详情页
         await IntentLauncher.startActivityAsync('android.settings.APPLICATION_DETAILS_SETTINGS', {
           data: `package:${pkg}`,
         });
-      } catch (e) {
-        logger.warn('[Update] open install settings failed', e);
+        opened = true;
+      } catch {
+        // Android 8 以下没有「按应用授权」的概念，开关在「安全」设置里；
+        // 电视盒子多是 Android 6/7，走到这里才找得到真正的入口
+        try {
+          await IntentLauncher.startActivityAsync('android.settings.SECURITY_SETTINGS');
+          opened = true;
+        } catch (e) {
+          logger.warn('[Update] open install settings failed', e);
+        }
+      }
+      if (!opened) {
         Toast.show({
           type: 'error',
           text1: '打不开设置',

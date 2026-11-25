@@ -2,20 +2,20 @@
   "version": "2.0.3",
   "versionCode": 2003,
   "releasedAt": "2026-11-25",
-  "notes": "手机端 v2.0.3：修复点「立即安装」没反应（补 REQUEST_INSTALL_PACKAGES 权限）、安装引导与已下载包复用。电视端仍为 3.0.1。",
+  "notes": "手机端 v2.0.3 / 电视端 v3.0.2：修复点「立即安装」没反应（补 REQUEST_INSTALL_PACKAGES 权限），安装授权引导与已下载包复用。",
   "channels": {
     "tv": {
-      "version": "3.0.1",
-      "versionCode": 3001,
+      "version": "3.0.2",
+      "versionCode": 3002,
       "releasedAt": "2026-11-25",
       "abi": "armeabi-v7a",
-      "size": 21357232,
-      "md5": "a4fe836ca2ecc39a0a40b672d9cd0d49",
-      "notes": "修复更新下载极慢：下载前测速择优、低速自动换线、安装包 MD5 校验。无功能变更。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.1/OrionTV-TV-3.0.1-armeabi-v7a.apk",
+      "size": 21358271,
+      "md5": "9e42c208a98aa726a4e0ac7c3e762bb7",
+      "notes": "修复点「立即安装」没有反应（缺少安装未知应用权限），并补老系统安全设置入口、已下载包不再重复下载。仍含更新下载测速择优。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.2/OrionTV-TV-3.0.2-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.1/OrionTV-TV-3.0.1-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.1/OrionTV-TV-3.0.1-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.2/OrionTV-TV-3.0.2-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.2/OrionTV-TV-3.0.2-armeabi-v7a.apk"
       ]
     },
     "phone": {
