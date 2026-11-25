@@ -6,7 +6,6 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
 
 data class PosterVM(
     val title: String,
@@ -48,12 +47,7 @@ class PosterAdapter(
             holder.rate.visibility = View.VISIBLE
             holder.rate.text = item.badge
         }
-        Glide.with(holder.image.context)
-            .load(Api.imageUrl(item.poster))
-            .placeholder(R.color.surface)
-            .error(R.color.surface)
-            .centerCrop()
-            .into(holder.image)
+        Images.load(holder.image, Api.imageUrl(item.poster), item.title)
 
         holder.itemView.setOnClickListener { onClick(position) }
         holder.itemView.setOnFocusChangeListener { v, hasFocus ->
