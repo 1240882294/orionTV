@@ -2,8 +2,12 @@
 import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
 import Toast from 'react-native-toast-message';
-import { version as currentVersion } from '../package.json';
-import { UPDATE_CONFIG, getUpdateChannel, UpdateChannel } from '../constants/UpdateConfig';
+import {
+  UPDATE_CONFIG,
+  getUpdateChannel,
+  getCurrentVersion as readChannelVersion,
+  UpdateChannel,
+} from '../constants/UpdateConfig';
 import Logger from '@/utils/Logger';
 import { Platform } from 'react-native';
 
@@ -340,7 +344,7 @@ class UpdateService {
   }
 
   getCurrentVersion(): string {
-    return currentVersion;
+    return readChannelVersion();
   }
 
   getChannel(): UpdateChannel {
@@ -348,7 +352,7 @@ class UpdateService {
   }
 
   isUpdateAvailable(remoteVersion: string): boolean {
-    return this.compareVersions(remoteVersion, currentVersion) > 0;
+    return this.compareVersions(remoteVersion, readChannelVersion()) > 0;
   }
 }
 

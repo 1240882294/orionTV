@@ -13,6 +13,7 @@ export function UpdateModal() {
     downloading,
     downloadProgress,
     error,
+    channel,
     setShowUpdateModal,
     startDownload,
     installUpdate,
@@ -65,7 +66,9 @@ export function UpdateModal() {
     <Modal visible={showUpdateModal} transparent animationType="fade" onRequestClose={handleLater}>
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <ThemedText style={styles.title}>发现新版本</ThemedText>
+          <ThemedText style={styles.title}>
+            {channel === "tv" ? "发现电视端新版本" : "发现手机端新版本"}
+          </ThemedText>
 
           <View style={styles.versionInfo}>
             <ThemedText style={styles.versionText}>当前版本: v{currentVersion}</ThemedText>

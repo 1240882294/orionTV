@@ -3,6 +3,47 @@
 本项目基于上游 [orion-lib/OrionTV](https://github.com/orion-lib/OrionTV) 源码二次修改，
 版本号从 `1.0.0` 重新起算，与上游 1.3.14 的对应关系在每条记录里注明。
 
+## 2026-11-25 两端独立维护 · 手机端 v2.0.0 / 电视端 v3.0.0
+
+**本次没有任何功能新增，也没有 bug 修复，只把两端的版本号彻底分开。**
+
+从今天起电视端与手机端独立维护、独立发版：电视端出问题时只改电视端、只发电视端，
+手机端不会收到更新提示，也不会看到电视端的更新日志（反过来同理）。
+
+### 版本号规则
+
+| 端 | 主版本号 | 本次版本 | versionCode | Release tag |
+|---|---|---|---|---|
+| 手机 | **偶数**（2.x、4.x、6.x…） | `2.0.0` | 2000 | `phone-v2.0.0` |
+| 电视 | **奇数**（3.x、5.x、7.x…） | `3.0.0` | 3000 | `tv-v3.0.0` |
+
+一奇一偶，两端版本号永远不会相同。
+
+### 手机端 v2.0.0（versionCode 2000）
+
+- 仅版本号变更，功能与 1.4.2 完全一致。
+- 安装包：`OrionTV-Phone-2.0.0-arm64-v8a.apk`
+
+### 电视端 v3.0.0（versionCode 3000）
+
+- 仅版本号变更，功能与 1.4.2 完全一致。
+- 安装包：`OrionTV-TV-3.0.0-armeabi-v7a.apk`
+
+### 技术细节
+
+- `constants/UpdateConfig.ts`：新增 `CHANNEL_VERSIONS` 与 `getCurrentVersion()`，
+  当前版本改为按渠道取值，不再用 `package.json` 的单一 version —— 这是之前「电视端发版、
+  手机端也弹更新」的根因。
+- `services/updateService.ts`：`getCurrentVersion()` / `isUpdateAvailable()` 改用渠道版本。
+- `stores/updateStore.ts`：新增 `refreshChannel()`；`checkForUpdate` 每次重新读取渠道版本，
+  避免电视盒子 `Platform.isTV=false` 时沿用启动瞬间猜错的版本号。
+- `app/_layout.tsx`：布局识别出电视后同步刷新渠道与当前版本。
+- `app.config.js`：按 `ORION_CHANNEL=tv|phone` 选择 version / versionCode；`android/app/build.gradle`
+  支持 `ORION_VERSION` / `ORION_VERSION_CODE` 环境变量注入。
+- `UpdateModal`：标题区分「发现电视端新版本 / 发现手机端新版本」。
+- 兜底下载地址改为按渠道 tag：`releases/download/{channel}-v{version}/...`。
+- `services/__tests__/updateService.test.ts`：补充「手机端版本号不会触发电视端更新」用例。
+
 ## v1.4.2 — 2026-11-24（正式版）
 
 修复电视端「添加账号」表单里遥控器进不了输入框的问题。

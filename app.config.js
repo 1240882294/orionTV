@@ -1,19 +1,34 @@
 /**
  * 动态 Expo 配置（优先级高于 app.json，app.json 作为基础配置被继承）。
  *
- * 这里只做两件事：
+ * 这里做三件事：
  * 1. Android 最低系统版本。默认 API 23（Android 6.0）：
  *    React Native 0.74 / Expo SDK 51 预编译的 Hermes 与 fabricjni 原生库
  *    本身按 API 23 构建，链接器不允许把 21 作为目标（CXX1214），
  *    所以 21 只能作为实验开关保留，无法产出可运行包。
  *    如需尝试：ORION_MIN_SDK=21 yarn prebuild
  * 2. 平台锁定为 Android（本项目只维护电视端安卓链路）。
+ * 3. 按 ORION_CHANNEL 选择电视端 / 手机端各自的版本号（两端独立发版）。
  */
 const DEFAULT_MIN_SDK = 23; // Android 6.0（RN 0.74 的实际下限）
 const COMPILE_SDK = 34;
 const TARGET_SDK = 34;
-const APP_VERSION = "1.4.2";
-const VERSION_CODE = 15;
+
+/**
+ * 电视端与手机端独立维护、独立发版，版本号彻底分开：
+ * **手机端主版本号取偶数（2.x、4.x…），电视端取奇数（3.x、5.x…）**，永远不会撞号。
+ *
+ * 构建时用 ORION_CHANNEL=tv|phone 选对应版本（不传按 phone）。
+ * 与 `constants/UpdateConfig.ts` 里的 CHANNEL_VERSIONS 必须保持一致，
+ * 否则 APK 显示的版本和运行时比较用的版本会对不上。
+ */
+const CHANNEL_META = {
+  phone: { version: "2.0.0", versionCode: 2000 },
+  tv: { version: "3.0.0", versionCode: 3000 },
+};
+const BUILD_CHANNEL = process.env.ORION_CHANNEL === "tv" ? "tv" : "phone";
+const APP_VERSION = CHANNEL_META[BUILD_CHANNEL].version;
+const VERSION_CODE = CHANNEL_META[BUILD_CHANNEL].versionCode;
 
 module.exports = ({ config }) => {
   const rawMinSdk = Number(process.env.ORION_MIN_SDK ?? DEFAULT_MIN_SDK);

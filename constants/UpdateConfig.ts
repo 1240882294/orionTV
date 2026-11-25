@@ -39,6 +39,23 @@ export const setUpdateChannelOverride = (channel: UpdateChannel | null) => {
 export const getUpdateChannel = (): UpdateChannel =>
   channelOverride ?? (Platform.isTV ? "tv" : "phone");
 
+/**
+ * 两个客户端从 2026-11 起独立维护、独立发版，版本号也彻底分开：
+ * **手机端主版本号取偶数（2.x、4.x…），电视端取奇数（3.x、5.x…）**，
+ * 这样无论各自怎么迭代，两边的版本号都不会相同。
+ *
+ * 这里必须是「当前渠道」的版本，而不是 package.json 里那个统一值，
+ * 否则电视端发版会连带把手机端判成有新版本（更新日志还会串）。
+ * 发版时只改对应渠道这一行。
+ */
+export const CHANNEL_VERSIONS: Record<UpdateChannel, string> = {
+  tv: "3.0.0",
+  phone: "2.0.0",
+};
+
+/** 当前设备所属渠道的版本号（用于和远端清单比较） */
+export const getCurrentVersion = (): string => CHANNEL_VERSIONS[getUpdateChannel()];
+
 export const UPDATE_CONFIG = {
   // 自动检查更新
   AUTO_CHECK: true,
@@ -53,13 +70,15 @@ export const UPDATE_CONFIG = {
     `https://cdn.jsdelivr.net/gh/${OWNER}/${REPO}@${BRANCH}/version.json`,
   ],
 
-  // 兜底下载地址：清单里没给 url 时按版本号拼 GitHub Release 地址
+  // 兜底下载地址：清单里没给 url 时按「渠道 + 版本号」拼 GitHub Release 地址。
+  // 两端独立发版，Release tag 也按渠道区分（tv-v3.0.0 / phone-v2.0.0），
+  // 避免同一 tag 上混着两端的包，用户下错位数。
   getDownloadUrl(version: string, channel: UpdateChannel = getUpdateChannel()): string {
     const file =
       channel === "tv"
         ? `OrionTV-TV-${version}-armeabi-v7a.apk`
         : `OrionTV-Phone-${version}-arm64-v8a.apk`;
-    return `https://github.com/${OWNER}/${REPO}/releases/download/v${version}/${file}`;
+    return `https://github.com/${OWNER}/${REPO}/releases/download/${channel}-v${version}/${file}`;
   },
 
   // GitHub 直连不通时使用的下载镜像前缀

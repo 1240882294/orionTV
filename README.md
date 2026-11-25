@@ -8,6 +8,7 @@
 > 主要改动：启动时扫描账号 → 连接服务器 → 校验并刷新 → 失败提示；仅保留 Android 平台。
 >
 > - 版本从 `1.0.0` 起算，改动明细见 [CHANGELOG.md](./CHANGELOG.md)
+> - **2026-11-25 起电视端与手机端独立维护、独立发版，版本号彻底分开**（见下）
 > - 构建环境与步骤见 [BUILD.md](./BUILD.md)
 > - 安装包在 [Releases](../../releases) 页面下载：
 >   **电视端** `OrionTV-TV-<版本>-armeabi-v7a.apk`（32 位）；
@@ -15,14 +16,34 @@
 >
 > 当前支持 Android 6.0 及以上。
 
+## 🔢 版本号与发版规则（重要）
+
+两端虽然共用同一份代码，但**版本号、更新清单、Release 全部独立**：
+
+| 端 | 版本号规则 | 当前版本 | versionCode | Release tag |
+|---|---|---|---|---|
+| 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.0.0` | 2000 | `phone-v2.0.0` |
+| 电视 | **主版本号取奇数**（3.x、5.x、7.x…） | `3.0.0` | 3000 | `tv-v3.0.0` |
+
+一奇一偶，两端版本号永远不可能相同，也不会出现「手机端收到电视端更新日志」的情况。
+
+发版时只动自己那一端：
+
+1. 改 `constants/UpdateConfig.ts` 的 `CHANNEL_VERSIONS` 与 `app.config.js` 的 `CHANNEL_META` 中**对应渠道**那一行；
+2. 只改 `version.json` 里**对应渠道**节点（另一端的 `version` 保持不动，那边就不会弹更新）；
+3. 只打这一端的包，只在对应的 tag（`tv-vX.Y.Z` / `phone-vX.Y.Z`）建 Release，只上传这一个 APK。
+
+修复电视端 bug 时，手机端版本号、`version.json` 的 `phone` 节点、手机端 Release 都不动，手机用户不会收到任何提示。
+
+
 ## 📱 双端说明
 
 同一套代码会在运行时识别设备形态，自动切换界面与更新渠道：
 
-| 端 | 架构 | 安装包 | 界面 | 更新渠道 |
-|---|---|---|---|---|
-| 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` |
-| 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` |
+| 端 | 架构 | 安装包 | 界面 | 更新渠道 | 当前版本 |
+|---|---|---|---|---|---|
+| 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` | `3.0.0` |
+| 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` | `2.0.0` |
 
 远程管理（扫码输入）只在电视 / 平板端显示；手机端作为输入设备使用。
 
@@ -31,17 +52,31 @@
 
 ## 🔄 远程更新
 
-应用会读取仓库根目录的 [`version.json`](./version.json) 检查新版本：
+应用会读取仓库根目录的 [`version.json`](./version.json) 检查新版本，**只比较自己渠道那一段**：
 
 ```json
 {
-  "version": "1.3.0",
+  "version": "2.0.0",
+  "notes": "顶层字段仅作旧客户端兜底",
   "channels": {
-    "tv": { "version": "1.3.0", "url": "...apk", "mirrors": ["..."] },
-    "phone": { "version": "1.3.0", "url": "...apk", "mirrors": ["..."] }
+    "tv": {
+      "version": "3.0.0",
+      "notes": "电视端更新说明（手机端看不到）",
+      "url": ".../releases/download/tv-v3.0.0/OrionTV-TV-3.0.0-armeabi-v7a.apk",
+      "mirrors": ["..."]
+    },
+    "phone": {
+      "version": "2.0.0",
+      "notes": "手机端更新说明（电视端看不到）",
+      "url": ".../releases/download/phone-v2.0.0/OrionTV-Phone-2.0.0-arm64-v8a.apk",
+      "mirrors": ["..."]
+    }
   }
 }
 ```
+
+电视端只读 `channels.tv`，手机端只读 `channels.phone`，更新日志也各用各的 `notes`。
+只改一端时，另一端的 `version` 原样保留，那边不会收到任何更新提示。
 
 设置 → 远程更新 可以手动检查；下载完成后直接拉起系统安装器。
 清单地址按 GitHub 直连 → ghfast → jsDelivr 回退，APK 下载同样支持镜像切换。

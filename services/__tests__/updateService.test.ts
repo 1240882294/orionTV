@@ -12,6 +12,8 @@ jest.mock("react-native-toast-message", () => ({ show: jest.fn() }));
 jest.mock("@/constants/UpdateConfig", () => ({
   UPDATE_CONFIG: { MANIFEST_URLS: [], DOWNLOAD_MIRRORS: [], getDownloadUrl: () => "" },
   getUpdateChannel: () => "tv",
+  // 两端版本号已分开：这里模拟电视端（奇数主版本）
+  getCurrentVersion: () => "3.0.0",
 }));
 jest.mock("@/utils/Logger", () => {
   const noop = () => {};
@@ -54,6 +56,13 @@ describe("updateService.compareVersions", () => {
   });
 
   it("测试版能升级到正式版（真实场景）", () => {
-    expect(updateService.isUpdateAvailable("1.3.0")).toBe(false); // 本机已是 1.3.0
+    expect(updateService.isUpdateAvailable("1.3.0")).toBe(false); // 本机已是 3.0.0
+  });
+
+  it("两端版本号独立：电视端只认电视渠道的版本", () => {
+    // 手机端即使发到 2.x，电视端（3.0.0）也不该提示更新
+    expect(updateService.isUpdateAvailable("2.9.9")).toBe(false);
+    expect(updateService.isUpdateAvailable("3.0.0")).toBe(false);
+    expect(updateService.isUpdateAvailable("3.0.1")).toBe(true);
   });
 });

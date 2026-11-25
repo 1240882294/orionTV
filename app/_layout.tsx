@@ -81,6 +81,9 @@ export default function RootLayout() {
   // 否则会去下 64 位包，32 位盒子装不上
   useEffect(() => {
     setUpdateChannelOverride(responsiveConfig.deviceType === "tv" ? "tv" : null);
+    // 两端版本号已分开，渠道确定后要立刻刷新「当前版本」，
+    // 否则设置页会显示启动时按 Platform.isTV 猜出来的那一端版本号
+    useUpdateStore.getState().refreshChannel();
   }, [responsiveConfig.deviceType]);
 
   // 远程更新：启动页结束后静默查一次（12 小时内不重复查），有新版才弹窗

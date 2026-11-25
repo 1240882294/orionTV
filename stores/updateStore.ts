@@ -33,6 +33,8 @@ interface UpdateState {
   setShowUpdateModal: (show: boolean) => void;
   skipThisVersion: () => Promise<void>;
   reset: () => void;
+  /** 渠道确定/变化后刷新「当前版本」，两端版本号已分开，不能再沿用启动时的快照 */
+  refreshChannel: () => void;
 }
 
 const STORAGE_KEYS = {
@@ -61,7 +63,14 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   // 检查更新，返回是否有新版本
   checkForUpdate: async (silent = false) => {
     try {
-      set({ error: null, isLatestVersion: false });
+      // 渠道可能在启动后才被布局识别并覆盖（电视盒子 Platform.isTV 常为 false），
+      // 所以每次检查都重新取一次「当前渠道版本」，不能用 store 初始化时那份快照。
+      set({
+        error: null,
+        isLatestVersion: false,
+        currentVersion: updateService.getCurrentVersion(),
+        channel: updateService.getChannel(),
+      });
 
       const skipVersion = await AsyncStorage.getItem(STORAGE_KEYS.SKIP_VERSION);
 
@@ -189,6 +198,13 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
         showUpdateModal: false,
       });
     }
+  },
+
+  refreshChannel: () => {
+    set({
+      currentVersion: updateService.getCurrentVersion(),
+      channel: updateService.getChannel(),
+    });
   },
 
   reset: () => {

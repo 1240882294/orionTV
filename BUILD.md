@@ -181,3 +181,42 @@ unzip -l app-release.apk | grep "lib/" | awk '{print $4}' | cut -d/ -f2 | sort |
 
 注意：`./gradlew` 在本环境会尝试联网下载 gradle-8.8-all 并超时，
 直接调用 `/opt/gradle/gradle-8.8/bin/gradle`。
+
+## 九、两端独立发版（2026-11-25 起）
+
+电视端与手机端版本号已彻底分开（手机偶数主版本、电视奇数主版本），
+出包时必须用 `ORION_CHANNEL` 标明是哪一端，否则 APK 里的 versionName / versionCode
+会和运行时比较用的「当前渠道版本」对不上，更新检查会误判。
+
+| 端 | ORION_CHANNEL | ORION_VERSION | ORION_VERSION_CODE | ABI |
+|---|---|---|---|---|
+| 电视 | `tv` | `3.0.0` | `3000` | armeabi-v7a |
+| 手机 | `phone` | `2.0.0` | `2000` | arm64-v8a |
+
+一次只发一端时，只构建、只上传这一端的包：
+
+```sh
+export JAVA_HOME=/opt/jdk17 ANDROID_HOME=/opt/android-sdk
+export CMAKE_BUILD_PARALLEL_LEVEL=4 NODE_OPTIONS=--max-old-space-size=4096
+
+# ---- 电视端 ----
+sed -i 's/^reactNativeArchitectures=.*/reactNativeArchitectures=armeabi-v7a/' android/gradle.properties
+rm -rf android/app/build/intermediates/{merged,stripped}_native_libs android/app/build/outputs/apk
+cd android
+NODE_ENV=production ORION_CHANNEL=tv ORION_VERSION=3.0.0 ORION_VERSION_CODE=3000 \
+  /opt/gradle/gradle-8.8/bin/gradle assembleRelease --max-workers=4
+
+# ---- 手机端 ----
+sed -i 's/^reactNativeArchitectures=.*/reactNativeArchitectures=arm64-v8a/' android/gradle.properties
+rm -rf android/app/build/intermediates/{merged,stripped}_native_libs android/app/build/outputs/apk
+NODE_ENV=production ORION_CHANNEL=phone ORION_VERSION=2.0.0 ORION_VERSION_CODE=2000 \
+  /opt/gradle/gradle-8.8/bin/gradle assembleRelease --max-workers=4
+```
+
+版本号要改三处并保持一致：
+
+1. `constants/UpdateConfig.ts` → `CHANNEL_VERSIONS`
+2. `app.config.js` → `CHANNEL_META`
+3. `version.json` → 对应渠道节点（另一渠道不要动）
+
+发布时 tag 按渠道区分：`tv-v3.0.0` / `phone-v2.0.0`，Release 里只放本端那一个 APK。
