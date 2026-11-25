@@ -9,6 +9,14 @@
 jest.mock("expo-file-system", () => ({}));
 jest.mock("expo-intent-launcher", () => ({}));
 jest.mock("react-native-toast-message", () => ({ show: jest.fn() }));
+jest.mock("@react-native-async-storage/async-storage", () => ({
+  __esModule: true,
+  default: {
+    getItem: jest.fn(async () => null),
+    setItem: jest.fn(async () => undefined),
+    removeItem: jest.fn(async () => undefined),
+  },
+}));
 jest.mock("@/constants/UpdateConfig", () => ({
   UPDATE_CONFIG: { MANIFEST_URLS: [], DOWNLOAD_MIRRORS: [], getDownloadUrl: () => "" },
   getUpdateChannel: () => "tv",
