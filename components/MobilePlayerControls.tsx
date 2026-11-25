@@ -164,6 +164,9 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
 
   const { detail } = useDetailStore();
   const [interactionTick, setInteractionTick] = useState(0);
+  // 锁定后那枚锁自动淡出，避免一直压在画面上；点屏幕重新出现
+  const [lockHintVisible, setLockHintVisible] = useState(true);
+  const [lockHintTick, setLockHintTick] = useState(0);
 
   const touch = useCallback(() => setInteractionTick((v) => v + 1), []);
 
@@ -179,6 +182,17 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
     const timer = setTimeout(() => setShowControls(false), 4000);
     return () => clearTimeout(timer);
   }, [showControls, isPlaying, anyModalOpen, screenLocked, interactionTick, setShowControls]);
+
+  // 锁屏图标：锁定 2.6 秒后自动消隐；点屏幕用 lockHintTick 重新计时
+  useEffect(() => {
+    if (!screenLocked) {
+      setLockHintVisible(true);
+      return;
+    }
+    setLockHintVisible(true);
+    const timer = setTimeout(() => setLockHintVisible(false), 2600);
+    return () => clearTimeout(timer);
+  }, [screenLocked, lockHintTick]);
 
   const guard = (fn: () => void) => () => {
     touch();
@@ -223,17 +237,37 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
   );
 
   // 锁屏：只留解锁入口，其余控件全部不渲染（手势层也由 play.tsx 一并屏蔽）
+  // 注意：这里不能整层换成另一个 View。整层替换会让视频所在的 SurfaceView 重新参与
+  // 合成，安卓上会短暂留下一层按旧尺寸拉伸的画面，看起来就是上下两条「蒙版」。
+  // 现在保持同一个容器，只切换子节点，画面层不会被动到。
   if (screenLocked) {
     return (
-      <View style={styles.lockOverlay} pointerEvents="box-none">
+      <View style={[styles.overlay, styles.overlayLocked]} pointerEvents="box-none">
+        {/* 点任意位置：把解锁按钮叫出来（否则图标自动消隐后没法解锁） */}
         <Pressable
-          onPress={() => setScreenLocked(false)}
-          style={styles.lockButton}
-          hitSlop={12}
-        >
-          <Lock color="white" size={18} />
-          <Text style={styles.lockText}>已锁定 · 点此解锁</Text>
-        </Pressable>
+          style={StyleSheet.absoluteFill}
+          onPress={() => {
+            setLockHintVisible(true);
+            setLockHintTick((v) => v + 1);
+          }}
+        />
+        {lockHintVisible ? (
+          <View style={styles.lockSlot} pointerEvents="box-none">
+            <Pressable
+              onPress={() => {
+                // 解锁后顺手把控件亮出来，省得用户以为没反应
+                setScreenLocked(false);
+                setShowControls(true);
+                touch();
+              }}
+              style={styles.lockCircle}
+              hitSlop={14}
+              accessibilityLabel="解锁"
+            >
+              <Lock color="white" size={20} />
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     );
   }
@@ -247,6 +281,18 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">
+      {/* 左侧居中：锁屏。锁定后同一位置变成解锁，只有一个图标，不带文字 */}
+      <View style={styles.lockSlot} pointerEvents="box-none">
+        <Pressable
+          onPress={guard(() => setScreenLocked(true))}
+          style={styles.lockCircle}
+          hitSlop={12}
+          accessibilityLabel="锁屏"
+        >
+          <LockOpen color="white" size={20} />
+        </Pressable>
+      </View>
+
       {/* 顶部：返回 + 标题 + 全屏 */}
       <View
         style={[
@@ -271,13 +317,6 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
             </Text>
           ) : null}
         </View>
-        <Pressable
-          onPress={guard(() => setScreenLocked(true))}
-          style={styles.iconButton}
-          hitSlop={10}
-        >
-          <LockOpen color="white" size={20} />
-        </Pressable>
         <Pressable onPress={guard(() => toggleFullscreen())} style={styles.iconButton} hitSlop={10}>
           {isFullscreen ? <Minimize color="white" size={22} /> : <Maximize color="white" size={22} />}
         </Pressable>
@@ -491,26 +530,25 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 12,
   },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "flex-end",
-    justifyContent: "center",
-    paddingRight: 24,
-    // 压在控件层之上；只有这一个按钮可点，其余触摸交给 play.tsx 的锁定遮罩吃掉
-    zIndex: 40,
-    elevation: 40,
+  // 锁定态不压暗画面：只保留一个可点的空层，背景交给视频本身
+  overlayLocked: {
+    backgroundColor: "transparent",
   },
-  lockButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  // 锁 / 解锁共用同一个槽位：屏幕最左侧、纵向居中
+  lockSlot: {
+    position: "absolute",
+    left: 10,
+    top: "50%",
+    marginTop: -22,
+    zIndex: 41,
+    elevation: 41,
+  },
+  lockCircle: {
+    width: 44,
+    height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(0,0,0,0.6)",
-  },
-  lockText: {
-    color: "white",
-    fontSize: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
 });

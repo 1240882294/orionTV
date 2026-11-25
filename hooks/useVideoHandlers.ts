@@ -16,6 +16,8 @@ interface UseVideoHandlersProps {
   handlePlaybackStatusUpdate: (status: any) => void;
   deviceType: string;
   detail?: { poster?: string };
+  /** 画面填充方式：全屏用 COVER 铺满，小窗用 CONTAIN 完整显示 */
+  resizeMode?: ResizeMode;
 }
 
 export const useVideoHandlers = ({
@@ -29,6 +31,7 @@ export const useVideoHandlers = ({
   handlePlaybackStatusUpdate,
   deviceType,
   detail,
+  resizeMode,
 }: UseVideoHandlersProps) => {
   
   const onLoad = useCallback(async () => {
@@ -112,7 +115,7 @@ export const useVideoHandlers = ({
   const videoProps = useMemo(() => ({
     source: { uri: sourceUrl || currentEpisode?.url || '' },
     posterSource: { uri: detail?.poster ?? "" },
-    resizeMode: ResizeMode.CONTAIN,
+    resizeMode: resizeMode ?? ResizeMode.CONTAIN,
     rate: playbackRate,
     onPlaybackStatusUpdate: handlePlaybackStatusUpdate,
     onLoad,
@@ -131,6 +134,7 @@ export const useVideoHandlers = ({
     onLoadStart,
     onError,
     deviceType,
+    resizeMode,
   ]);
 
   return {

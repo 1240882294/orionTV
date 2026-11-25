@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Video } from "expo-av";
+import { Video, ResizeMode } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
 import * as ScreenOrientation from "expo-screen-orientation";
 import * as NavigationBar from "expo-navigation-bar";
@@ -84,7 +84,7 @@ export default function PlayScreen() {
 
   // 响应式布局配置
   const { deviceType } = useResponsiveLayout();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   // 设备类型以进入页面前的布局为准：横屏后宽度变大会被误判成 tablet/tv
   const initialDeviceTypeRef = useRef(deviceType);
@@ -159,6 +159,8 @@ export default function PlayScreen() {
     handlePlaybackStatusUpdate,
     deviceType,
     detail: detail || undefined,
+    // 全屏时铺满整个窗口，避免上下留边；竖屏小窗仍按 16:9 完整显示
+    resizeMode: isTouchDevice && isFullscreen ? ResizeMode.COVER : ResizeMode.CONTAIN,
   });
 
   // 过滤成功时轻提示一次，避免同一集重复弹出
@@ -643,6 +645,7 @@ export default function PlayScreen() {
         right: 0,
         height: videoHeight,
         backgroundColor: "black",
+        overflow: "hidden" as const,
         zIndex: 0,
       }
     : tvCompact
@@ -653,9 +656,21 @@ export default function PlayScreen() {
         width: tvBox.width,
         height: tvBox.height,
         backgroundColor: "black",
+        overflow: "hidden" as const,
         zIndex: 0,
       }
-    : { ...StyleSheet.absoluteFillObject, zIndex: 0 };
+    : {
+        // 显式钉死窗口尺寸：absoluteFill 只是跟随父级，横屏切换那一帧父级可能还没量准，
+        // 解码层会按旧尺寸糊一层旧画面，表现为上下两条「蒙版」
+        position: "absolute" as const,
+        top: 0,
+        left: 0,
+        width: windowWidth,
+        height: windowHeight,
+        backgroundColor: "black",
+        overflow: "hidden" as const,
+        zIndex: 0,
+      };
 
   if (!detail && !preparing) {
     return <VideoLoadingAnimation showProgressBar />;
