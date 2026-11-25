@@ -1,6 +1,7 @@
 // UpdateService.ts
 import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import {
   UPDATE_CONFIG,
@@ -49,6 +50,9 @@ export interface VersionInfo {
  * 只在 Android 平台使用的常量（iOS 不会走到下载/安装流程）
  */
 const ANDROID_MIME_TYPE = 'application/vnd.android.package-archive';
+
+/** 已下载安装包的缓存位置：避免关弹窗 / 进程重启后重复下载 */
+const DOWNLOAD_CACHE_KEY = 'update_downloaded_apk';
 
 /** 下载开始后的观察窗口：这段时间的平均速度低于阈值就判定为「假快」线路 */
 const SLOW_PROBE_MS = 6_000;
@@ -366,23 +370,27 @@ class UpdateService {
           flags,
         });
       } catch (e: any) {
-        if (e.message?.includes('Activity not found')) {
+        const msg = String(e?.message || '');
+        if (msg.includes('Activity not found') || msg.includes('No Activity')) {
           Toast.show({
             type: 'error',
-            text1: '安装失败',
-            text2: '系统没有找到可以打开 APK 的应用，请检查系统设置',
+            text1: '没有找到安装器',
+            text2: '请在「设置 → 应用 → 安装未知应用」中允许本应用安装，再重试',
+            visibilityTime: 5000,
           });
-        } else if (e.message?.includes('permission')) {
+        } else if (msg.includes('permission') || msg.includes('SecurityException')) {
           Toast.show({
             type: 'error',
-            text1: '安装失败',
-            text2: '请在设置里允许“未知来源”安装',
+            text1: '缺少安装权限',
+            text2: '请在「设置 → 应用 → 安装未知应用」中允许本应用安装',
+            visibilityTime: 5000,
           });
         } else {
           Toast.show({
             type: 'error',
             text1: '安装失败',
-            text2: '未知错误，请稍后重试',
+            text2: msg ? msg.slice(0, 80) : '未知错误，请稍后重试',
+            visibilityTime: 5000,
           });
         }
         throw e;
@@ -394,6 +402,67 @@ class UpdateService {
         text2: 'iOS 设备无法直接安装 APK',
       });
       throw new Error('APK install not supported on iOS');
+    }
+  }
+
+  /**
+   * 打开「安装未知应用」授权页。
+   *
+   * 华为鸿蒙 / 卓易通这类环境里，拉起安装器可能被系统静默拦下，
+   * 必须让用户手动在这里给本应用授权，否则点多少次都没反应。
+   */  async openInstallPermissionSettings(): Promise<void> {
+    if (Platform.OS !== 'android') return;
+    const pkg = 'com.oriontv';
+    try {
+      await IntentLauncher.startActivityAsync('android.settings.MANAGE_UNKNOWN_APP_SOURCES', {
+        data: `package:${pkg}`,
+      });
+    } catch {
+      try {
+        // 部分定制系统没有上面那个页面，退回应用详情页
+        await IntentLauncher.startActivityAsync('android.settings.APPLICATION_DETAILS_SETTINGS', {
+          data: `package:${pkg}`,
+        });
+      } catch (e) {
+        logger.warn('[Update] open install settings failed', e);
+        Toast.show({
+          type: 'error',
+          text1: '打不开设置',
+          text2: '请手动到「设置 → 应用 → 安装未知应用」中允许本应用',
+          visibilityTime: 5000,
+        });
+      }
+    }
+  }
+
+  /**
+   * 记住「哪个版本的包已经下好了」。
+   *
+   * 不记的话，弹窗一关、或者应用被系统杀掉重启，downloadedPath 就没了，
+   * 用户再点检查更新只能重新下一遍 20 多 MB。
+   */
+  async rememberDownload(version: string, path: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(
+        DOWNLOAD_CACHE_KEY,
+        JSON.stringify({ version, path, at: Date.now() }),
+      );
+    } catch {
+      // 记不住不影响使用
+    }
+  }
+
+  /** 取回上次下载好的包；版本对不上或文件已被删掉就返回 null */
+  async recallDownload(version: string): Promise<string | null> {
+    try {
+      const raw = await AsyncStorage.getItem(DOWNLOAD_CACHE_KEY);
+      if (!raw) return null;
+      const saved = JSON.parse(raw) as { version?: string; path?: string };
+      if (!saved?.version || saved.version !== version || !saved.path) return null;
+      const info = await FileSystem.getInfoAsync(saved.path);
+      return info.exists ? saved.path : null;
+    } catch {
+      return null;
     }
   }
 

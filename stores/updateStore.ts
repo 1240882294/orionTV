@@ -22,6 +22,8 @@ interface UpdateState {
   downloading: boolean;
   downloadProgress: number;
   downloadedPath: string | null;
+  /** 已拉起系统安装器，但可能被系统静默拦下，需要引导用户去授权 */
+  installRequested: boolean;
   error: string | null;
   lastCheckTime: number;
   skipVersion: string | null;
@@ -33,6 +35,8 @@ interface UpdateState {
   startDownload: () => Promise<void>;
   installUpdate: () => Promise<void>;
   downloadAndInstall: () => Promise<void>;
+  /** 打开系统的「安装未知应用」授权页 */
+  openInstallSettings: () => Promise<void>;
   setShowUpdateModal: (show: boolean) => void;
   skipThisVersion: () => Promise<void>;
   reset: () => void;
@@ -59,6 +63,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   downloading: false,
   downloadProgress: 0,
   downloadedPath: null,
+  installRequested: false,
   error: null,
   lastCheckTime: 0,
   skipVersion: null,
@@ -84,6 +89,9 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
       const shouldShowUpdate = isUpdateAvailable && versionInfo.version !== skipVersion;
       const isLatest = !isUpdateAvailable;
 
+      // 同一个版本的包如果之前已经下好了，直接复用，不用再下一遍 20 多 MB
+      const cachedApk = await updateService.recallDownload(versionInfo.version);
+
       set({
         remoteVersion: versionInfo.version,
         downloadUrl: versionInfo.downloadUrl,
@@ -92,6 +100,8 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
         channel: versionInfo.channel,
         expectedSize: versionInfo.size ?? null,
         expectedMd5: versionInfo.md5 ?? null,
+        downloadedPath: cachedApk,
+        installRequested: false,
         updateAvailable: isUpdateAvailable,
         lastCheckTime: Date.now(),
         skipVersion,
@@ -152,10 +162,14 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
         },
       );
 
+      // 记下来，弹窗关掉或进程被杀后还能找回这个包
+      await updateService.rememberDownload(get().remoteVersion, filePath);
+
       set({
         downloadedPath: filePath,
         downloading: false,
         downloadProgress: 100,
+        installRequested: false,
       });
     } catch (error) {
       set({
@@ -176,14 +190,23 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
     }
 
     try {
+      set({ error: null });
       await updateService.installApk(downloadedPath);
-      set({ showUpdateModal: false });
+      // 不要立刻关弹窗：系统可能把安装器静默拦下（未授权「安装未知应用」），
+      // 关掉弹窗用户就彻底没线索了。保留弹窗，并显示去授权的入口。
+      set({ installRequested: true });
     } catch (error) {
       logger.error('安装失败:', error);
       set({
+        installRequested: false,
         error: error instanceof Error ? error.message : '安装失败',
       });
     }
+  },
+
+  /** 打开系统的「安装未知应用」授权页 */
+  openInstallSettings: async () => {
+    await updateService.openInstallPermissionSettings();
   },
 
   // 一键更新：下载完成后立即拉起安装器
@@ -223,6 +246,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
       downloading: false,
       downloadProgress: 0,
       downloadedPath: null,
+      installRequested: false,
       error: null,
       showUpdateModal: false,
       isLatestVersion: false,

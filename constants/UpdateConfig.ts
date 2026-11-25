@@ -50,7 +50,7 @@ export const getUpdateChannel = (): UpdateChannel =>
  */
 export const CHANNEL_VERSIONS: Record<UpdateChannel, string> = {
   tv: "3.0.1",
-  phone: "2.0.2",
+  phone: "2.0.3",
 };
 
 /** 当前设备所属渠道的版本号（用于和远端清单比较） */

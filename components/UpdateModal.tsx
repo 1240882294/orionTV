@@ -19,6 +19,8 @@ export function UpdateModal() {
     installUpdate,
     skipThisVersion,
     downloadedPath,
+    installRequested,
+    openInstallSettings,
   } = useUpdateStore();
 
   const updateButtonRef = React.useRef<View>(null);
@@ -88,6 +90,15 @@ export function UpdateModal() {
 
           {error && <ThemedText style={styles.errorText}>{error}</ThemedText>}
 
+          {installRequested && (
+            <View style={styles.installHintBox}>
+              <ThemedText style={styles.installHintText}>
+                已请求安装。如果没弹出安装界面，多半是系统还没允许本应用安装应用 ——
+                点下面的按钮打开授权，回来再按一次「立即安装」。
+              </ThemedText>
+            </View>
+          )}
+
           <View style={styles.buttonContainer}>
             <StyledButton
               ref={updateButtonRef}
@@ -103,15 +114,27 @@ export function UpdateModal() {
               )}
             </StyledButton>
 
-            {!downloading && !downloadedPath && (
+            {installRequested && (
+              <StyledButton
+                onPress={() => void openInstallSettings()}
+                variant="primary"
+                style={styles.button}
+              >
+                <ThemedText style={styles.buttonText}>打开安装权限设置</ThemedText>
+              </StyledButton>
+            )}
+
+            {!downloading && (
               <>
                 <StyledButton ref={laterButtonRef} onPress={handleLater} variant="primary" style={styles.button}>
                   <ThemedText style={[styles.buttonText]}>稍后再说</ThemedText>
                 </StyledButton>
 
-                <StyledButton ref={skipButtonRef} onPress={handleSkip} variant="primary" style={styles.button}>
-                  <ThemedText style={[styles.buttonText]}>跳过此版本</ThemedText>
-                </StyledButton>
+                {!downloadedPath && (
+                  <StyledButton ref={skipButtonRef} onPress={handleSkip} variant="primary" style={styles.button}>
+                    <ThemedText style={[styles.buttonText]}>跳过此版本</ThemedText>
+                  </StyledButton>
+                )}
               </>
             )}
           </View>
@@ -185,6 +208,20 @@ const styles = StyleSheet.create({
     fontSize: Platform.isTV ? 16 : 14,
     color: "#ff4444",
     marginBottom: 16,
+    textAlign: "center",
+  },
+  installHintBox: {
+    backgroundColor: "rgba(255, 193, 7, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 193, 7, 0.5)",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  installHintText: {
+    fontSize: Platform.isTV ? 15 : 13,
+    lineHeight: Platform.isTV ? 22 : 20,
+    color: "#ffca28",
     textAlign: "center",
   },
   buttonContainer: {
