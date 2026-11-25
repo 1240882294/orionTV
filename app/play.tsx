@@ -84,7 +84,7 @@ export default function PlayScreen() {
 
   // 响应式布局配置
   const { deviceType } = useResponsiveLayout();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
 
   // 设备类型以进入页面前的布局为准：横屏后宽度变大会被误判成 tablet/tv
   const initialDeviceTypeRef = useRef(deviceType);
@@ -159,8 +159,9 @@ export default function PlayScreen() {
     handlePlaybackStatusUpdate,
     deviceType,
     detail: detail || undefined,
-    // 全屏时铺满整个窗口，避免上下留边；竖屏小窗仍按 16:9 完整显示
-    resizeMode: isTouchDevice && isFullscreen ? ResizeMode.COVER : ResizeMode.CONTAIN,
+    // 画面一律完整显示，不裁剪：全屏时按窗口等比缩放，多出来的边用黑底补
+    // （之前全屏用 COVER 铺满，20:9 屏幕上 16:9 的片子会被切掉左右，用户不接受）
+    resizeMode: ResizeMode.CONTAIN,
   });
 
   // 过滤成功时轻提示一次，避免同一集重复弹出
@@ -660,13 +661,11 @@ export default function PlayScreen() {
         zIndex: 0,
       }
     : {
-        // 显式钉死窗口尺寸：absoluteFill 只是跟随父级，横屏切换那一帧父级可能还没量准，
-        // 解码层会按旧尺寸糊一层旧画面，表现为上下两条「蒙版」
-        position: "absolute" as const,
-        top: 0,
-        left: 0,
-        width: windowWidth,
-        height: windowHeight,
+        // 跟随父容器铺满整窗，不再用 windowWidth/windowHeight 手工钉尺寸。
+        // 手工钉尺寸时，值取的是「整个窗口」的高度，而父容器可能已被状态栏/导航栏
+        // 占去一部分，于是视频层比容器大、被裁掉一截，解码层还会按裁切前的尺寸合成，
+        // 表现为画面边缘发灰的「蒙版」。交给 flex 布局量，尺寸永远一致。
+        ...StyleSheet.absoluteFillObject,
         backgroundColor: "black",
         overflow: "hidden" as const,
         zIndex: 0,
@@ -682,8 +681,10 @@ export default function PlayScreen() {
     <ThemedView focusable style={styles.container}>
       <StatusBar hidden={isTouchDevice && isFullscreen} barStyle="light-content" />
 
-      {/* 1. 视频层：只负责画面，不接收触摸 */}
-      <View style={videoLayerStyle}>
+      {/* 1. 视频层：只负责画面，不接收触摸
+          collapsable={false} 必须保留：安卓上这个 View 若被 RN 优化掉，SurfaceView
+          会直接挂到更外层的容器上，尺寸随容器变化时就会用旧帧拉伸，出现蒙版 */}
+      <View style={videoLayerStyle} collapsable={false}>
         {playUrl ? (
           <Video ref={videoRef} style={styles.videoPlayer} {...videoProps} />
         ) : (

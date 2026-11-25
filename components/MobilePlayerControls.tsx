@@ -236,51 +236,53 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
     [commitSeek]
   );
 
-  // 锁屏：只留解锁入口，其余控件全部不渲染（手势层也由 play.tsx 一并屏蔽）
-  // 注意：这里不能整层换成另一个 View。整层替换会让视频所在的 SurfaceView 重新参与
-  // 合成，安卓上会短暂留下一层按旧尺寸拉伸的画面，看起来就是上下两条「蒙版」。
-  // 现在保持同一个容器，只切换子节点，画面层不会被动到。
-  if (screenLocked) {
-    return (
-      <View style={[styles.overlay, styles.overlayLocked]} pointerEvents="box-none">
-        {/* 点任意位置：把解锁按钮叫出来（否则图标自动消隐后没法解锁） */}
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={() => {
-            setLockHintVisible(true);
-            setLockHintTick((v) => v + 1);
-          }}
-        />
-        {lockHintVisible ? (
-          <View style={styles.lockSlot} pointerEvents="box-none">
-            <Pressable
-              onPress={() => {
-                // 解锁后顺手把控件亮出来，省得用户以为没反应
-                setScreenLocked(false);
-                setShowControls(true);
-                touch();
-              }}
-              style={styles.lockCircle}
-              hitSlop={14}
-              accessibilityLabel="解锁"
-            >
-              <Lock color="white" size={20} />
-            </Pressable>
-          </View>
-        ) : null}
-      </View>
-    );
-  }
-
-  if (!showControls) return null;
-
   // 横屏时上方是刘海/挖孔，左右要避开；竖屏时上方是状态栏
   const topInset = isLandscape ? Math.max(insets.top, 8) : insets.top + 8;
   const bottomInset = Math.max(insets.bottom, isLandscape ? 10 : 16);
   const sideInset = Math.max(insets.left, insets.right, isLandscape ? 20 : 12);
 
-  return (
-    <View style={styles.overlay} pointerEvents="box-none">
+  /**
+   * 锁定态与控件态共用**同一个根节点**，只切换子节点。
+   *
+   * 之前是两个 early-return：锁定的一瞬间整棵视图树被替换，根节点换了一个带
+   * `backgroundColor` 的 View。安卓上这会让 SurfaceView 重新参与一次窗口合成，
+   * 合成时用的是上一帧的尺寸 —— 画面被糊上一层洗白的旧帧，也就是用户看到的
+   * 「蒙版」：控件消隐时跟着消失（整层卸载），一锁屏就留下来（新层顶在上面）。
+   *
+   * 现在根节点恒为透明容器、身份不变，只在内部换子节点，视频层不会再被重合成。
+   */
+  const lockLayer = (
+    <>
+      {/* 点任意位置：把解锁按钮叫出来（否则图标自动消隐后没法解锁） */}
+      <Pressable
+        style={StyleSheet.absoluteFill}
+        onPress={() => {
+          setLockHintVisible(true);
+          setLockHintTick((v) => v + 1);
+        }}
+      />
+      {lockHintVisible ? (
+        <View style={styles.lockSlot} pointerEvents="box-none">
+          <Pressable
+            onPress={() => {
+              // 解锁后顺手把控件亮出来，省得用户以为没反应
+              setScreenLocked(false);
+              setShowControls(true);
+              touch();
+            }}
+            style={styles.lockCircle}
+            hitSlop={14}
+            accessibilityLabel="解锁"
+          >
+            <Lock color="white" size={20} />
+          </Pressable>
+        </View>
+      ) : null}
+    </>
+  );
+
+  const controlsLayer = (
+    <>
       {/* 左侧居中：锁屏。锁定后同一位置变成解锁，只有一个图标，不带文字 */}
       <View style={styles.lockSlot} pointerEvents="box-none">
         <Pressable
@@ -401,15 +403,32 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
           ) : null}
         </View>
       </View>
+    </>
+  );
+
+  // 没控件也没锁：整层卸载，画面上不留任何东西
+  if (!screenLocked && !showControls) return null;
+
+  return (
+    <View style={styles.overlay} pointerEvents="box-none">
+      {screenLocked ? lockLayer : controlsLayer}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  /**
+   * 控件层**不加整屏底色**。
+   *
+   * 这里原来压了一层 rgba(0,0,0,0.28)，本意是让白字更清楚，但在安卓上它会在
+   * SurfaceView 之上多一次半透明合成：控件一出现整块屏幕发灰（用户说的「隐隐的
+   * 蒙版」），锁定后又因为这一层还在，蒙版消不掉。改成透明，画面纯净，
+   * 可读性靠控件自己的圆角底色和底部栏的局部深色条保证。
+   */
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "space-between",
-    backgroundColor: "rgba(0,0,0,0.28)",
+    backgroundColor: "transparent",
     // 关键：必须压在视频层与点击层之上，否则触摸会被下层吃掉，表现为「按钮全部没反应」
     zIndex: 30,
     elevation: 30,
@@ -470,8 +489,10 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
   },
+  // 底部栏自带一条局部深色底：不再压暗整屏，进度条也要看得清
   bottomBar: {
-    paddingTop: 6,
+    paddingTop: 10,
+    backgroundColor: "rgba(0,0,0,0.42)",
   },
   sliderRow: {
     flexDirection: "row",
@@ -529,10 +550,6 @@ const styles = StyleSheet.create({
   actionText: {
     color: "white",
     fontSize: 12,
-  },
-  // 锁定态不压暗画面：只保留一个可点的空层，背景交给视频本身
-  overlayLocked: {
-    backgroundColor: "transparent",
   },
   // 锁 / 解锁共用同一个槽位：屏幕最左侧、纵向居中
   lockSlot: {
