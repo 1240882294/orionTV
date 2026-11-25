@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { BUILD_CHANNEL, BUILD_VERSION } from "./BuildInfo";
 
 /**
  * 远程更新配置
@@ -25,36 +25,38 @@ const RAW_BASE = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}`;
 export type UpdateChannel = "tv" | "phone";
 
 /**
- * 渠道覆盖：不少国产电视盒子 `Platform.isTV` 为 false（系统没声明 leanback 特性），
- * 但界面确实是电视布局。这时若按 `Platform.isTV` 判成 phone，32 位盒子会下到 64 位包、
- * 装不上。所以允许布局层在识别出电视布局时把渠道钉成 tv。
+ * 渠道以**安装包**为准，不看当前设备。
+ *
+ * 电视端和手机端是两份独立的包，但 JS 只有一份，所以渠道必须在打包时固化，
+ * 由 `scripts/apply-build-info.js` 写进 `BuildInfo.ts`。
+ *
+ * 不能用 `Platform.isTV` 判：
+ * - 32 位电视包装到手机上能正常跑，此时 `Platform.isTV` 为 false，
+ *   旧逻辑会把自己当成手机端 —— 设置页显示「手机版 v2.0.4」（其实是 3.0.4-test.1），
+ *   检查更新还会去下 64 位手机包，等于把另一端的包装进来；
+ * - 反过来不少电视盒子不声明 leanback 特性，`Platform.isTV` 也是 false，
+ *   32 位盒子会拿到 64 位包，直接装不上。
+ *
+ * 设备形态仍然由 `useResponsiveLayout().deviceType` 决定，只影响界面布局。
  */
-let channelOverride: UpdateChannel | null = null;
 
-export const setUpdateChannelOverride = (channel: UpdateChannel | null) => {
-  channelOverride = channel;
-};
+/** 安装包自带的版本号（构建时写入，与 APK 的 versionName 同源） */
+export const getInstalledVersion = (): string => BUILD_VERSION;
 
-/** 电视端与手机端使用同一份代码，运行时按设备能力区分更新渠道。 */
-export const getUpdateChannel = (): UpdateChannel =>
-  channelOverride ?? (Platform.isTV ? "tv" : "phone");
+/** 当前安装包属于哪一端 */
+export const getInstalledChannel = (): UpdateChannel => BUILD_CHANNEL;
+
+/** 当前渠道，等同于安装包渠道 */
+export const getUpdateChannel = (): UpdateChannel => BUILD_CHANNEL;
 
 /**
- * 两个客户端从 2026-11 起独立维护、独立发版，版本号也彻底分开：
- * **手机端主版本号取偶数（2.x、4.x…），电视端取奇数（3.x、5.x…）**，
- * 这样无论各自怎么迭代，两边的版本号都不会相同。
+ * 当前版本号 = 安装包版本号。
  *
- * 这里必须是「当前渠道」的版本，而不是 package.json 里那个统一值，
- * 否则电视端发版会连带把手机端判成有新版本（更新日志还会串）。
- * 发版时只改对应渠道这一行。
+ * 不再从「渠道 → 版本表」里查：
+ * 电视端主版本取奇数（3.x、5.x…）、手机端取偶数（2.x、4.x…），
+ * 两端各自迭代互不影响，版本号也永远不会撞。
  */
-export const CHANNEL_VERSIONS: Record<UpdateChannel, string> = {
-  tv: "3.0.4-test.1",
-  phone: "2.0.4",
-};
-
-/** 当前设备所属渠道的版本号（用于和远端清单比较） */
-export const getCurrentVersion = (): string => CHANNEL_VERSIONS[getUpdateChannel()];
+export const getCurrentVersion = (): string => BUILD_VERSION;
 
 export const UPDATE_CONFIG = {
   // 自动检查更新
