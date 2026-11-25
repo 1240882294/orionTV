@@ -10,7 +10,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
 
 /**
  * 详情页：按片名搜出所有资源站，可切换播放源、点集数直接播放。
@@ -51,7 +50,8 @@ class DetailActivity : AppCompatActivity() {
         query = intent.getStringExtra(EXTRA_TITLE) ?: ""
         preferredSource = intent.getStringExtra(EXTRA_SOURCE)
         titleView.text = query
-        statusView.text = "正在加载…"
+        statusView.text = "正在搜索各资源站…（约 10–30 秒）"
+        statusView.setOnClickListener { load() }
 
         sourcesAdapter = ChipAdapter(R.layout.item_source) { index -> selectSource(index) }
         episodesAdapter = ChipAdapter(R.layout.item_episode) { index -> play(index) }
@@ -76,19 +76,20 @@ class DetailActivity : AppCompatActivity() {
             statusView.text = "缺少片名"
             return
         }
+        statusView.text = "正在搜索各资源站…（约 10–30 秒）"
         Ui.io({ Api.search(query) }) { result ->
             result.onSuccess { list ->
                 sources.clear()
                 sources.addAll(list)
                 if (list.isEmpty()) {
-                    statusView.text = "没有找到可用资源"
+                    statusView.text = "没有找到可用资源（点此重试）"
                     return@onSuccess
                 }
                 sourcesAdapter.submit(list.map { it.sourceName.ifBlank { it.source } })
                 val index = list.indexOfFirst { it.source == preferredSource }.coerceAtLeast(0)
                 selectSource(index)
             }.onFailure {
-                statusView.text = it.message ?: "加载失败"
+                statusView.text = "${it.message ?: "加载失败"}（点此重试）"
             }
         }
     }
@@ -100,10 +101,7 @@ class DetailActivity : AppCompatActivity() {
         baseMeta = listOf(item.year, item.sourceName).filter { it.isNotBlank() }.joinToString(" · ")
         metaView.text = baseMeta
 
-        Glide.with(this)
-            .load(Api.imageUrl(item.poster))
-            .placeholder(R.color.surface)
-            .into(poster)
+        Images.load(poster, Api.imageUrl(item.poster), item.title)
 
         val labels = item.episodes.indices.map { i ->
             if (item.episodes.size == 1) "播放" else "第 ${i + 1} 集"
@@ -129,7 +127,7 @@ class DetailActivity : AppCompatActivity() {
                     .filter { it.isNotBlank() }
                     .joinToString(" · ")
                 if (detail.poster.isNotBlank() && item.poster.isBlank()) {
-                    Glide.with(this).load(Api.imageUrl(detail.poster)).into(poster)
+                    Images.load(poster, Api.imageUrl(detail.poster), item.title)
                 }
             }
         }
