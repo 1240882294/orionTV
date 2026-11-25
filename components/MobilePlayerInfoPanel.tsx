@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ChevronLeft, Maximize, Play, Pause, RefreshCw } from "lucide-react-native";
+import { ChevronLeft, Maximize, Play, Pause, RefreshCw, Cast } from "lucide-react-native";
 import useDetailStore from "@/stores/detailStore";
 import usePlayerStore from "@/stores/playerStore";
 import {
@@ -38,6 +38,8 @@ interface Props {
   videoTop: number;
   /** 视频区高度 */
   videoHeight: number;
+  /** 打开投屏面板；不传则不显示投屏入口 */
+  onOpenCast?: () => void;
 }
 
 /**
@@ -45,7 +47,7 @@ interface Props {
  * 上方保留视频预览，下方是剧集简介、线路（带实测速度）和播放列表，
  * 这样退出全屏后不用回详情页也能换集换源。
  */
-export const MobilePlayerInfoPanel: React.FC<Props> = ({ videoTop, videoHeight }) => {
+export const MobilePlayerInfoPanel: React.FC<Props> = ({ videoTop, videoHeight, onOpenCast }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -152,6 +154,11 @@ export const MobilePlayerInfoPanel: React.FC<Props> = ({ videoTop, videoHeight }
         <Text style={styles.headerTitle} numberOfLines={1}>
           {detail?.title || "正在播放"}
         </Text>
+        {onOpenCast ? (
+          <Pressable onPress={onOpenCast} style={styles.headerButton} hitSlop={10}>
+            <Cast color="white" size={20} />
+          </Pressable>
+        ) : null}
         <Pressable onPress={enterFullscreen} style={styles.headerButton} hitSlop={10}>
           <Maximize color="white" size={20} />
         </Pressable>

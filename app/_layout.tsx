@@ -20,6 +20,7 @@ import { UserManagementModal } from "@/components/UserManagementModal";
 import { initUpdateStore, useUpdateStore } from "@/stores/updateStore";
 import { UPDATE_CONFIG } from "@/constants/UpdateConfig";
 import Logger from '@/utils/Logger';
+import { startCastReceiver } from "@/services/cast/receiver";
 
 const logger = Logger.withTag('RootLayout');
 
@@ -53,6 +54,12 @@ export default function RootLayout() {
       });
     }
   }, []);
+
+  // 电视端：启动投屏接收服务（手机端扫 12347 端口发现这台设备）
+  useEffect(() => {
+    const isTelevision = Platform.isTV || responsiveConfig.deviceType === "tv";
+    if (isTelevision) startCastReceiver();
+  }, [responsiveConfig.deviceType]);
 
   // 启动序列：读配置 -> 扫描账号 -> 连接服务器 -> 刷新账号
   // 连接失败会停在 BootGate 的错误页，不会带着空数据进入首页

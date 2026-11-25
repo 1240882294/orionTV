@@ -27,7 +27,8 @@ const CHANNEL_META = {
   tv: { version: "3.0.5-test.2", versionCode: 3005 },
 };
 const BUILD_CHANNEL = process.env.ORION_CHANNEL === "tv" ? "tv" : "phone";
-const APP_VERSION = CHANNEL_META[BUILD_CHANNEL].version;
+// 允许命令行直接指定版本号，发测试版时不用改这个文件再改回去
+const APP_VERSION = process.env.ORION_VERSION || CHANNEL_META[BUILD_CHANNEL].version;
 const VERSION_CODE = CHANNEL_META[BUILD_CHANNEL].versionCode;
 
 module.exports = ({ config }) => {

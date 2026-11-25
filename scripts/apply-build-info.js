@@ -30,7 +30,7 @@ if (!Number.isFinite(versionCode) || versionCode <= 0) {
   process.exit(1);
 }
 
-const target = path.join(__dirname, "..", "src", "constants", "BuildInfo.ts");
+const target = path.join(__dirname, "..", "constants", "BuildInfo.ts");
 const content = `/**
  * 构建信息（由 scripts/apply-build-info.js 在打包前生成，请勿手改）。
  *

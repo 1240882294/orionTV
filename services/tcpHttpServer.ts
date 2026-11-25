@@ -5,8 +5,7 @@ import Logger from '@/utils/Logger';
 const logger = Logger.withTag('TCPHttpServer');
 
 const PORT = 12346;
-
-interface HttpRequest {
+export interface HttpRequest {
   method: string;
   url: string;
   headers: { [key: string]: string };
@@ -49,9 +48,12 @@ class TCPHttpServer {
   private server: TcpSocket.Server | null = null;
   private isRunning = false;
   private requestHandler: RequestHandler | null = null;
+  /** 端口可配：远程输入用 12346，投屏接收用 12347，互不干扰 */
+  private readonly port: number;
 
-  constructor() {
+  constructor(port: number = PORT) {
     this.server = null;
+    this.port = port;
   }
 
   private parseHttpRequest(data: string): HttpRequest | null {
@@ -94,8 +96,10 @@ class TCPHttpServer {
   private formatHttpResponse(response: HttpResponse): string {
     const statusTexts: { [key: number]: string } = {
       200: 'OK',
+      204: 'No Content',
       400: 'Bad Request',
       404: 'Not Found',
+      405: 'Method Not Allowed',
       500: 'Internal Server Error'
     };
 
@@ -136,7 +140,7 @@ class TCPHttpServer {
 
     if (this.isRunning) {
       logger.debug('[TCPHttpServer] Server is already running.');
-      return `http://${ipAddress}:${PORT}`;
+      return `http://${ipAddress}:${this.port}`;
     }
 
     return new Promise((resolve, reject) => {
@@ -148,37 +152,44 @@ class TCPHttpServer {
           
           socket.on('data', async (data: string | Buffer) => {
             requestData += data.toString();
-            
-            // Check if we have a complete HTTP request
-            if (requestData.includes('\r\n\r\n')) {
-              try {
-                const request = this.parseHttpRequest(requestData);
-                if (request && this.requestHandler) {
-                  const response = await this.requestHandler(request);
-                  const httpResponse = this.formatHttpResponse(response);
-                  socket.write(httpResponse);
-                } else {
-                  // Send 400 Bad Request for malformed requests
-                  const errorResponse = this.formatHttpResponse({
-                    statusCode: 400,
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: 'Bad Request'
-                  });
-                  socket.write(errorResponse);
-                }
-              } catch (error) {
-                logger.info('[TCPHttpServer] Error handling request:', error);
+
+            const headerEnd = requestData.indexOf('\r\n\r\n');
+            if (headerEnd === -1) return;
+
+            // 按 Content-Length 等请求体收全。投屏要传 JSON，稍大一点就会被拆成多个
+            // data 事件，原来一看到 \r\n\r\n 就处理会把 body 截断成半截 JSON。
+            const contentLength = Number(
+              /\r\ncontent-length:\s*(\d+)/i.exec(requestData.slice(0, headerEnd))?.[1] ?? 0
+            );
+            if (requestData.length - (headerEnd + 4) < contentLength) return;
+
+            try {
+              const request = this.parseHttpRequest(requestData);
+              if (request && this.requestHandler) {
+                const response = await this.requestHandler(request);
+                const httpResponse = this.formatHttpResponse(response);
+                socket.write(httpResponse);
+              } else {
+                // Send 400 Bad Request for malformed requests
                 const errorResponse = this.formatHttpResponse({
-                  statusCode: 500,
+                  statusCode: 400,
                   headers: { 'Content-Type': 'text/plain' },
-                  body: 'Internal Server Error'
+                  body: 'Bad Request'
                 });
                 socket.write(errorResponse);
               }
-              
-              socket.end();
-              requestData = '';
+            } catch (error) {
+              logger.info('[TCPHttpServer] Error handling request:', error);
+              const errorResponse = this.formatHttpResponse({
+                statusCode: 500,
+                headers: { 'Content-Type': 'text/plain' },
+                body: 'Internal Server Error'
+              });
+              socket.write(errorResponse);
             }
+
+            socket.end();
+            requestData = '';
           });
 
           socket.on('error', (error: Error) => {
@@ -190,10 +201,10 @@ class TCPHttpServer {
           });
         });
 
-        this.server.listen({ port: PORT, host: '0.0.0.0' }, () => {
-          logger.debug(`[TCPHttpServer] Server listening on ${ipAddress}:${PORT}`);
+        this.server.listen({ port: this.port, host: '0.0.0.0' }, () => {
+          logger.debug(`[TCPHttpServer] Server listening on ${ipAddress}:${this.port}`);
           this.isRunning = true;
-          resolve(`http://${ipAddress}:${PORT}`);
+          resolve(`http://${ipAddress}:${this.port}`);
         });
 
         this.server.on('error', (error: Error) => {

@@ -21,6 +21,7 @@ import {
   Maximize,
   Minimize,
   Tv,
+  Cast,
 } from "lucide-react-native";
 import usePlayerStore from "@/stores/playerStore";
 import useDetailStore from "@/stores/detailStore";
@@ -28,6 +29,8 @@ import useDetailStore from "@/stores/detailStore";
 interface MobilePlayerControlsProps {
   showControls: boolean;
   setShowControls: (show: boolean) => void;
+  /** 打开投屏面板；不传就不显示投屏入口（电视端不需要） */
+  onOpenCast?: () => void;
 }
 
 const formatTime = (milliseconds: number) => {
@@ -131,6 +134,7 @@ const SeekSlider: React.FC<{
 export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
   showControls,
   setShowControls,
+  onOpenCast,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -326,6 +330,20 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
             <Text style={styles.actionText}>线路</Text>
           </Pressable>
 
+          {onOpenCast ? (
+            <Pressable
+              onPress={guard(() => {
+                setShowControls(true);
+                onOpenCast();
+              })}
+              style={[styles.actionButton, styles.actionButtonCompact]}
+              hitSlop={6}
+            >
+              <Cast color="white" size={18} />
+              <Text style={styles.actionText}>投屏</Text>
+            </Pressable>
+          ) : null}
+
           <Pressable onPress={guard(() => toggleFullscreen())} style={styles.actionButton} hitSlop={6}>
             {isFullscreen ? <Minimize color="white" size={18} /> : <Maximize color="white" size={18} />}
             <Text style={styles.actionText}>{isFullscreen ? "退出全屏" : "全屏"}</Text>
@@ -444,6 +462,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-around",
     marginTop: 6,
+  },
+  actionButtonCompact: {
+    paddingHorizontal: 8,
+    gap: 3,
   },
   actionButton: {
     flexDirection: "row",
