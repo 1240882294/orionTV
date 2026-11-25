@@ -54,7 +54,8 @@ export function UpdateModal() {
 
   const getButtonText = () => {
     if (downloading) {
-      return `下载中 ${downloadProgress}%`;
+      // 0% 时正在并发测速挑线路，给个明确提示，别让用户以为卡住了
+      return downloadProgress > 0 ? `下载中 ${downloadProgress}%` : "正在选择最快线路…";
     } else if (downloadedPath) {
       return "立即安装";
     } else {

@@ -16,6 +16,9 @@ interface UpdateState {
   mirrors: string[];
   releaseNotes: string;
   channel: UpdateChannel;
+  /** 清单里给的安装包大小与 MD5，用于下载后校验 */
+  expectedSize: number | null;
+  expectedMd5: string | null;
   downloading: boolean;
   downloadProgress: number;
   downloadedPath: string | null;
@@ -51,6 +54,8 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   mirrors: [],
   releaseNotes: '',
   channel: updateService.getChannel(),
+  expectedSize: null,
+  expectedMd5: null,
   downloading: false,
   downloadProgress: 0,
   downloadedPath: null,
@@ -85,6 +90,8 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
         mirrors: versionInfo.mirrors,
         releaseNotes: versionInfo.notes,
         channel: versionInfo.channel,
+        expectedSize: versionInfo.size ?? null,
+        expectedMd5: versionInfo.md5 ?? null,
         updateAvailable: isUpdateAvailable,
         lastCheckTime: Date.now(),
         skipVersion,
@@ -119,7 +126,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 
   // 开始下载
   startDownload: async () => {
-    const { downloadUrl, mirrors } = get();
+    const { downloadUrl, mirrors, expectedSize, expectedMd5 } = get();
 
     if (!downloadUrl) {
       set({ error: '下载地址无效' });
@@ -139,6 +146,10 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
           set({ downloadProgress: progress });
         },
         mirrors,
+        {
+          size: expectedSize ?? undefined,
+          md5: expectedMd5 ?? undefined,
+        },
       );
 
       set({

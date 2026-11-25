@@ -20,6 +20,8 @@ interface ChannelInfo {
   notes?: string;
   abi?: string;
   size?: number;
+  /** 安装包 MD5，清单提供时用于下载后完整性校验（防半截包 / 被代理替换） */
+  md5?: string;
 }
 
 interface RemoteManifest {
@@ -37,12 +39,24 @@ export interface VersionInfo {
   notes: string;
   /** 当前设备使用的渠道：tv（32 位）/ phone（64 位） */
   channel: UpdateChannel;
+  /** 安装包字节数（清单提供时用于完整性校验） */
+  size?: number;
+  /** 安装包 MD5（清单提供时用于完整性校验） */
+  md5?: string;
 }
 
 /**
  * 只在 Android 平台使用的常量（iOS 不会走到下载/安装流程）
  */
 const ANDROID_MIME_TYPE = 'application/vnd.android.package-archive';
+
+/** 下载开始后的观察窗口：这段时间的平均速度低于阈值就判定为「假快」线路 */
+const SLOW_PROBE_MS = 6_000;
+/** 低速阈值（KB/s）；bytes/ms 与 KB/s 数值等价 */
+const SLOW_THRESHOLD_KB = 80;
+/** 测速时只拉这么多字节，够区分 1.4MB/s 与 14KB/s */
+const SPEED_PROBE_BYTES = 512 * 1024;
+const SPEED_PROBE_TIMEOUT_MS = 2_500;
 
 const fetchWithTimeout = async (url: string, timeoutMs: number): Promise<Response> => {
   const controller = new AbortController();
@@ -106,6 +120,8 @@ class UpdateService {
           mirrors,
           notes: channelInfo.notes || manifest?.notes || '',
           channel,
+          size: typeof channelInfo.size === 'number' ? channelInfo.size : undefined,
+          md5: typeof channelInfo.md5 === 'string' ? channelInfo.md5 : undefined,
         };
       } catch (e) {
         lastError = e;
@@ -159,59 +175,157 @@ class UpdateService {
   /** --------------------------------------------------------------
    *  3️⃣ 下载 APK：主地址失败时自动切换镜像
    * --------------------------------------------------------------- */
+  /**
+   * 探测单个地址的下载速度，返回 bytes/ms（数值上等于 KB/s）。
+   *
+   * 只取前 512KB（Range 请求），最多等 2.5 秒：
+   * - 正常的源 0.3~0.6 秒就回来了；
+   * - GitHub 直连被限速时 2.5 秒只下几十 KB，直接超时记 0 分排到最后。
+   *
+   * 返回 0 表示不可用（非 206 / 超时 / 报错）。
+   */
+  private async probeSpeed(
+    url: string,
+    probeBytes = SPEED_PROBE_BYTES,
+    timeoutMs = SPEED_PROBE_TIMEOUT_MS,
+  ): Promise<number> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const startedAt = Date.now();
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { Range: `bytes=0-${probeBytes - 1}` },
+      });
+      // 只有 206 才是真的只返回了探测那一段；
+      // 返回 200 说明服务端忽略了 Range，硬读会把整个 20+MB 拉进内存。
+      if (res.status !== 206) {
+        controller.abort();
+        return 0;
+      }
+      const buf = await res.arrayBuffer();
+      const elapsed = Math.max(1, Date.now() - startedAt);
+      return buf.byteLength / elapsed;
+    } catch {
+      return 0;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * 按实测速度给候选地址排序，快的在前、测不通的垫底。
+   *
+   * 这一步是关键：GitHub 直连在国内「连得上但只有十几 KB/s」，不会抛错，
+   * 旧逻辑会一直卡在直连上慢慢下，永远轮不到 1.4MB/s 的镜像。
+   */
+  private async rankCandidates(candidates: string[]): Promise<string[]> {
+    if (candidates.length <= 1) return candidates;
+    const startedAt = Date.now();
+    const probed = await Promise.all(
+      candidates.map(async url => ({ url, speed: await this.probeSpeed(url) })),
+    );
+    const usable = probed.filter(item => item.speed > 0).sort((a, b) => b.speed - a.speed);
+    const dead = probed.filter(item => item.speed === 0);
+    logger.info(
+      `[Update] probe ${Date.now() - startedAt}ms: ` +
+        probed.map(item => `${Math.round(item.speed)}KB/s`).join(' / '),
+    );
+    return [...usable, ...dead].map(item => item.url);
+  }
+
+  /** 下载后校验大小与 MD5；清单没提供校验信息时直接放行（兼容旧清单） */
+  private async verifyApk(
+    uri: string,
+    expected?: { size?: number; md5?: string },
+  ): Promise<boolean> {
+    if (!expected || (!expected.size && !expected.md5)) return true;
+    try {
+      const info = await FileSystem.getInfoAsync(uri, { md5: !!expected.md5 });
+      if (!info.exists) return false;
+      if (expected.size && typeof info.size === 'number' && info.size !== expected.size) {
+        logger.warn(`[Update] size mismatch: got ${info.size}, want ${expected.size}`);
+        return false;
+      }
+      if (expected.md5 && info.md5 && info.md5.toLowerCase() !== expected.md5.toLowerCase()) {
+        logger.warn(`[Update] md5 mismatch: got ${info.md5}, want ${expected.md5}`);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      logger.warn('[Update] verify failed', e);
+      return false;
+    }
+  }
+
   async downloadApk(
     url: string,
     onProgress?: (percent: number) => void,
     mirrors: string[] = [],
+    expected?: { size?: number; md5?: string },
   ): Promise<string> {
     await this.cleanOldApkFiles();
 
-    const candidates = [url, ...mirrors].filter(
-      (item, index, arr) => !!item && arr.indexOf(item) === index,
+    // 先测速再决定从哪条线开始下，而不是无脑先试 GitHub 直连
+    const candidates = await this.rankCandidates(
+      [url, ...mirrors].filter((item, index, arr) => !!item && arr.indexOf(item) === index),
     );
 
     let lastError: unknown = null;
 
     for (let i = 0; i < candidates.length; i += 1) {
       const candidate = candidates[i];
+      const timestamp = Date.now();
+      const fileName = `OrionTV_v${timestamp}_${i}.apk`;
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
       try {
         logger.info(`[Update] downloading (${i + 1}/${candidates.length}): ${candidate}`);
-        const timestamp = Date.now();
-        const fileName = `OrionTV_v${timestamp}_${i}.apk`;
-        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
 
-        const downloadResumable = FileSystem.createDownloadResumable(
-          candidate,
-          fileUri,
-          {},
-          progress => {
-            if (onProgress && progress.totalBytesExpectedToWrite) {
-              const percent = Math.floor(
-                (progress.totalBytesWritten / progress.totalBytesExpectedToWrite) * 100,
+        let slowAborted = false;
+        const startedAt = Date.now();
+        let resumable: ReturnType<typeof FileSystem.createDownloadResumable> | null = null;
+
+        resumable = FileSystem.createDownloadResumable(candidate, fileUri, {}, progress => {
+          if (onProgress && progress.totalBytesExpectedToWrite) {
+            const percent = Math.floor(
+              (progress.totalBytesWritten / progress.totalBytesExpectedToWrite) * 100,
+            );
+            onProgress(percent);
+          }
+
+          // 前 6 秒平均速度低于 80KB/s：说明测速那个窗口是「假快」，中止换下一条
+          const elapsed = Date.now() - startedAt;
+          if (!slowAborted && elapsed >= SLOW_PROBE_MS) {
+            const avgKbPerSec = progress.totalBytesWritten / elapsed;
+            if (avgKbPerSec < SLOW_THRESHOLD_KB) {
+              slowAborted = true;
+              logger.warn(
+                `[Update] too slow ${Math.round(avgKbPerSec)}KB/s, switching: ${candidate}`,
               );
-              onProgress(percent);
+              resumable?.pauseAsync().catch(() => {});
             }
-          },
-        );
+          }
+        });
 
-        const result = await downloadResumable.downloadAsync();
-        if (result && result.uri) {
-          logger.debug(`APK downloaded to ${result.uri}`);
-          return result.uri;
+        const result = await resumable.downloadAsync();
+        if (!result || !result.uri) {
+          throw new Error('Download failed: No URI available');
         }
-        throw new Error('Download failed: No URI available');
+
+        // 走公共代理时多一道校验：大小对不上或 MD5 不一致就当作坏包，换下一条
+        if (!(await this.verifyApk(result.uri, expected))) {
+          await FileSystem.deleteAsync(result.uri, { idempotent: true }).catch(() => {});
+          throw new Error('Downloaded file failed integrity check');
+        }
+
+        logger.debug(`APK downloaded to ${result.uri}`);
+        return result.uri;
       } catch (e) {
         lastError = e;
         logger.warn(`[Update] download failed: ${candidate}`, e);
-        // 删除可能残留的半截文件
-        try {
-          await FileSystem.deleteAsync(
-            `${FileSystem.documentDirectory}OrionTV_v${Date.now()}_${i}.apk`,
-            { idempotent: true },
-          );
-        } catch {
-          // ignore
-        }
+        // 删掉这一轮残留的半截文件（路径要和上面实际用的一致）
+        await FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(() => {});
       }
     }
 

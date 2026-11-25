@@ -49,8 +49,8 @@ export const getUpdateChannel = (): UpdateChannel =>
  * 发版时只改对应渠道这一行。
  */
 export const CHANNEL_VERSIONS: Record<UpdateChannel, string> = {
-  tv: "3.0.0",
-  phone: "2.0.0",
+  tv: "3.0.1",
+  phone: "2.0.1",
 };
 
 /** 当前设备所属渠道的版本号（用于和远端清单比较） */
