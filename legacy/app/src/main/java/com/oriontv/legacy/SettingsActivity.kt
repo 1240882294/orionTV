@@ -19,6 +19,10 @@ class SettingsActivity : AppCompatActivity() {
             finish()
         }
 
+        findViewById<TextView>(R.id.btnDiagnostics).setOnClickListener {
+            DiagnosticsActivity.start(this)
+        }
+
         findViewById<TextView>(R.id.btnLogout).setOnClickListener {
             Ui.io({ Api.logout() }) {
                 Ui.post {
