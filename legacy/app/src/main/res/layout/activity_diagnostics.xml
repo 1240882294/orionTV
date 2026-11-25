@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="网络诊断"
+            android:textColor="@color/text"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btnRun"
+            android:layout_width="130dp"
+            android:layout_height="46dp"
+            android:background="@drawable/btn_bg"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="重新检测"
+            android:textColor="@color/text"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/btnClear"
+            android:layout_width="130dp"
+            android:layout_height="46dp"
+            android:layout_marginLeft="12dp"
+            android:background="@drawable/btn_bg"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="清空日志"
+            android:textColor="@color/text"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/btnBack"
+            android:layout_width="110dp"
+            android:layout_height="46dp"
+            android:layout_marginLeft="12dp"
+            android:background="@drawable/btn_bg"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="返回"
+            android:textColor="@color/text"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:id="@+id/scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="16dp"
+        android:background="#FF111827"
+        android:padding="16dp"
+        android:scrollbars="vertical">
+
+        <TextView
+            android:id="@+id/output"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:lineSpacingExtra="4dp"
+            android:text="准备中…"
+            android:textColor="@color/text"
+            android:textSize="13sp" />
+    </ScrollView>
+</LinearLayout>
