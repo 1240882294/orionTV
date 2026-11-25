@@ -119,8 +119,8 @@ android {
         //   Phone ORION_VERSION=2.0.0 ORION_VERSION_CODE=2000
         // 不传时按手机端兜底，避免误出成电视端版本号。
         // 先落到局部变量再赋值：`versionCode (expr).toInteger()` 会被 Groovy 解析错，报 Value is null。
-        def orionVersionCode = (System.getenv("ORION_VERSION_CODE") ?: "2003").toInteger()
-        def orionVersionName = System.getenv("ORION_VERSION") ?: "2.0.3"
+        def orionVersionCode = (System.getenv("ORION_VERSION_CODE") ?: "2004").toInteger()
+        def orionVersionName = System.getenv("ORION_VERSION") ?: "2.0.4"
         versionCode orionVersionCode
         versionName orionVersionName
 

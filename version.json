@@ -1,8 +1,8 @@
 {
-  "version": "2.0.3",
-  "versionCode": 2003,
+  "version": "2.0.4",
+  "versionCode": 2004,
   "releasedAt": "2026-11-25",
-  "notes": "手机端 v2.0.3 / 电视端 v3.0.2：修复点「立即安装」没反应（补 REQUEST_INSTALL_PACKAGES 权限），安装授权引导与已下载包复用。",
+  "notes": "手机端 v2.0.4：修复双击暂停时图标重影。电视端仍为 3.0.2。",
   "channels": {
     "tv": {
       "version": "3.0.2",
@@ -19,17 +19,17 @@
       ]
     },
     "phone": {
-      "version": "2.0.3",
-      "versionCode": 2003,
+      "version": "2.0.4",
+      "versionCode": 2004,
       "releasedAt": "2026-11-25",
       "abi": "arm64-v8a",
-      "size": 26562890,
-      "md5": "d6a9b40399474089d38c857f5a7458bd",
-      "notes": "修复：点「立即安装」没有反应（缺少安装未知应用权限）。安装后会给出授权入口，已下载的包不会重复下载。另含全屏双击暂停/播放。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.0.3/OrionTV-Phone-2.0.3-arm64-v8a.apk",
+      "size": 26563015,
+      "md5": "0fbba59e6fe04d7580007888d0dbb415",
+      "notes": "修复：双击暂停/播放时中央图标与控件按钮重叠造成的重影，现在只保留控件自身的播放/暂停按钮作为反馈。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.0.4/OrionTV-Phone-2.0.4-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.0.3/OrionTV-Phone-2.0.3-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.0.3/OrionTV-Phone-2.0.3-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.0.4/OrionTV-Phone-2.0.4-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.0.4/OrionTV-Phone-2.0.4-arm64-v8a.apk"
       ]
     }
   }

@@ -41,7 +41,6 @@ import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { useVideoHandlers } from "@/hooks/useVideoHandlers";
 import { useAdFreePlayback } from "@/hooks/useAdFreePlayback";
 import { testSourcesSpeed, speedOf, getCachedSpeeds, setCachedSpeeds } from "@/services/sourceSpeedTest";
-import { Play, Pause } from "lucide-react-native";
 import Logger from "@/utils/Logger";
 
 const logger = Logger.withTag("PlayScreen");
@@ -469,9 +468,6 @@ export default function PlayScreen() {
    */
   const lastTapAtRef = useRef(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // 双击后居中闪一下播放/暂停图标，让用户确定操作生效了
-  const [tapHint, setTapHint] = useState<"play" | "pause" | null>(null);
-  const tapHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleScreenTap = useCallback(() => {
     const now = Date.now();
@@ -486,17 +482,10 @@ export default function PlayScreen() {
       }
       const state = usePlayerStore.getState();
       if (!state.status?.isLoaded) return;
-      // 点击前是暂停态 → 接下来会播放，反之亦然
-      const willPlay = !state.status.isPlaying;
       void state.togglePlayPause();
-      // 暂停后把控件亮出来，用户能直接看到进度和播放键
+      // 亮出控件：中央的播放/暂停按钮本身就是最准确的反馈，
+      // 不要再自绘一层图标——那是同一位置两个圆叠加，会重影
       state.setShowControls(true);
-      setTapHint(willPlay ? "play" : "pause");
-      if (tapHintTimerRef.current) clearTimeout(tapHintTimerRef.current);
-      tapHintTimerRef.current = setTimeout(() => {
-        tapHintTimerRef.current = null;
-        setTapHint(null);
-      }, 420);
       return;
     }
 
@@ -514,10 +503,6 @@ export default function PlayScreen() {
       if (singleTapTimerRef.current) {
         clearTimeout(singleTapTimerRef.current);
         singleTapTimerRef.current = null;
-      }
-      if (tapHintTimerRef.current) {
-        clearTimeout(tapHintTimerRef.current);
-        tapHintTimerRef.current = null;
       }
     },
     []
@@ -640,19 +625,6 @@ export default function PlayScreen() {
         </View>
       )}
 
-      {/* 2.1 双击暂停/播放的短暂反馈：居中闪一下图标，不接收触摸 */}
-      {tapHint && (
-        <View style={styles.tapHint} pointerEvents="none">
-          <View style={styles.tapHintBubble}>
-            {tapHint === "pause" ? (
-              <Pause color="#ffffff" size={44} fill="#ffffff" />
-            ) : (
-              <Play color="#ffffff" size={44} fill="#ffffff" />
-            )}
-          </View>
-        </View>
-      )}
-
       {/* 3. 加载覆盖层 */}
       {playUrl && isLoading && !preparing && (
         <View style={styles.loadingOverlay} pointerEvents="none">
@@ -725,20 +697,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 10,
     backgroundColor: "transparent",
-  },
-  tapHint: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 20,
-  },
-  tapHintBubble: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: "rgba(0, 0, 0, 0.55)",
-    alignItems: "center",
-    justifyContent: "center",
   },
   loadingContainer: {
     ...StyleSheet.absoluteFillObject,
