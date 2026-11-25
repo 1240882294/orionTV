@@ -49,7 +49,7 @@ export const getUpdateChannel = (): UpdateChannel =>
  * 发版时只改对应渠道这一行。
  */
 export const CHANNEL_VERSIONS: Record<UpdateChannel, string> = {
-  tv: "3.0.2",
+  tv: "3.0.3",
   phone: "2.0.4",
 };
 

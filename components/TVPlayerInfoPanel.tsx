@@ -362,7 +362,7 @@ export const TVPlayerInfoPanel: React.FC<Props> = ({ windowWidth }) => {
         />
       </View>
 
-      {/* 右侧：简介、播放源、选集 */}
+      {/* 右侧：从上到下依次是详情介绍、播放列表、播放源 */}
       <View
         style={[
           styles.rightColumn,
@@ -382,6 +382,38 @@ export const TVPlayerInfoPanel: React.FC<Props> = ({ windowWidth }) => {
             </>
           ) : null}
 
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>播放列表</Text>
+            <Text style={styles.sectionHint}>
+              共 {episodes.length} 集 · 当前第 {Math.max(1, currentEpisodeIndex + 1)} 集
+            </Text>
+          </View>
+
+          <View style={styles.episodeGrid}>
+            {episodes.map((episode, index) => {
+              const isCurrent = index === currentEpisodeIndex;
+              return (
+                <Pressable
+                  key={`episode-${index}`}
+                  onPress={() => onSelectEpisode(index)}
+                  focusable
+                  style={({ pressed, focused }: { pressed: boolean; focused?: boolean }) => [
+                    styles.episodeItem,
+                    isCurrent && styles.episodeItemActive,
+                    (focused || pressed) && styles.focused,
+                  ]}
+                >
+                  <Text style={[styles.episodeText, isCurrent && styles.episodeTextActive]}>
+                    {episode.title || `第 ${index + 1} 集`}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {episodes.length === 0 ? (
+            <Text style={styles.emptyText}>当前线路暂无可播放剧集，换一条线路试试</Text>
+          ) : null}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>播放源（{searchResults.length}）</Text>
             <Pressable
@@ -438,39 +470,6 @@ export const TVPlayerInfoPanel: React.FC<Props> = ({ windowWidth }) => {
               );
             })}
           </View>
-
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>播放列表</Text>
-            <Text style={styles.sectionHint}>
-              共 {episodes.length} 集 · 当前第 {Math.max(1, currentEpisodeIndex + 1)} 集
-            </Text>
-          </View>
-
-          <View style={styles.episodeGrid}>
-            {episodes.map((episode, index) => {
-              const isCurrent = index === currentEpisodeIndex;
-              return (
-                <Pressable
-                  key={`episode-${index}`}
-                  onPress={() => onSelectEpisode(index)}
-                  focusable
-                  style={({ pressed, focused }: { pressed: boolean; focused?: boolean }) => [
-                    styles.episodeItem,
-                    isCurrent && styles.episodeItemActive,
-                    (focused || pressed) && styles.focused,
-                  ]}
-                >
-                  <Text style={[styles.episodeText, isCurrent && styles.episodeTextActive]}>
-                    {episode.title || `第 ${index + 1} 集`}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {episodes.length === 0 ? (
-            <Text style={styles.emptyText}>当前线路暂无可播放剧集，换一条线路试试</Text>
-          ) : null}
         </ScrollView>
       </View>
     </View>
