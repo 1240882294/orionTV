@@ -14,6 +14,7 @@ import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.source.DefaultMediaSourceFactory
+import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.ui.PlayerView
 
 class PlayerActivity : AppCompatActivity() {
@@ -115,7 +116,15 @@ class PlayerActivity : AppCompatActivity() {
             }
         })
 
-        exo.setMediaItem(MediaItem.fromUri(url))
+        val item = MediaItem.fromUri(url)
+        // 带 query 的 m3u8（如 index.m3u8?token=…）靠后缀推断有时会落到 progressive，
+        // 显式指定 HLS 更稳
+        val source = if (url.contains("m3u8", ignoreCase = true)) {
+            HlsMediaSource.Factory(dataSource).createMediaSource(item)
+        } else {
+            DefaultMediaSourceFactory(dataSource).createMediaSource(item)
+        }
+        exo.setMediaSource(source)
         exo.prepare()
         exo.playWhenReady = true
     }
