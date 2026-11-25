@@ -53,8 +53,20 @@ object Api {
 
     fun isConfigured(): Boolean = baseUrl.isNotBlank()
 
-    /** 播放器的数据源也复用这条连接（保留 cookie，带正确 UA） */
-    fun httpClient(): OkHttpClient = client
+    /**
+     * 播放专用客户端：基于带 cookie 的 client，但去掉 callTimeout。
+     * 70 秒的整体上限是防搜索卡死的，播放是长时间连续读取，超时会把正在播的流掐断。
+     */
+    private val mediaClient: OkHttpClient by lazy {
+        client.newBuilder()
+            .callTimeout(0, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
+
+    /** 播放器的数据源也复用这条连接（保留 cookie，带正确 UA，且不限整体调用时长） */
+    fun httpClient(): OkHttpClient = mediaClient
 
     fun setBaseUrl(input: String) {
         var url = input.trim()
