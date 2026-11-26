@@ -14,13 +14,15 @@
 >
 >   | 入口 | 内容 |
 >   |---|---|
->   | [📦 全部版本 / All Releases](../../releases) | 所有正式版 + 测试版都在这页；**手机端请从这里进** |
+>   | [📦 全部版本 / All Releases](../../releases) | 所有正式版 + 测试版都在这页；**手机端和所有测试版只能从这里进** |
 >   | [电视端最新正式版 tv-v3.0.3](../../releases/tag/tv-v3.0.3) | `OrionTV-TV-3.0.3-armeabi-v7a.apk` |
 >   | [手机端最新正式版 phone-v2.0.4](../../releases/tag/phone-v2.0.4) | `OrionTV-Phone-2.0.4-arm64-v8a.apk` |
->   | [📡 手机端测试版 phone-v2.1.0-test.3](../../releases/tag/phone-v2.1.0-test.3) | `OrionTV-Phone-2.1.0-test.3-arm64-v8a.apk`（投屏 + 锁屏 + 3 倍速 + 全屏铺满，带 `Pre-release` 标记） |
+>   | [📡 手机端测试版 phone-v2.1.0-test.5](../../releases/tag/phone-v2.1.0-test.5) | `OrionTV-Phone-2.1.0-test.5-arm64-v8a.apk`（投屏 + 锁屏 + 3 倍速 + 画面不裁剪，带 `Pre-release` 标记） |
+>   | [📡 电视端测试版 tv-v3.0.5-test.2](../../releases/tag/tv-v3.0.5-test.2) | `OrionTV-TV-3.0.5-test.2-armeabi-v7a.apk`（搜索首字母联想 + 渠道识别修复，带 `Pre-release` 标记） |
 >
-> ⚠️ 仓库首页右侧的 **Releases** 小卡片只显示一个 `Latest`（当前是电视端 v3.0.3），
-> 手机端和测试版不在那里，必须点上面的「全部版本」。
+> ⚠️ 仓库首页右侧的 **Releases** 小卡片只显示一个 `Latest`（当前是电视端 v3.0.3）。
+> 手机端、以及**两个测试版都不在那里**，必须点上面的「全部版本」；
+> 进去后带灰色 `Pre-release` 标记的就是测试版，按时间倒序排在最前面。
 >
 > 主线支持 Android 6.0 及以上。
 
@@ -30,7 +32,7 @@
 
 | 端 | 版本号规则 | 当前正式版 | 测试版 | versionCode | Release tag |
 |---|---|---|---|---|---|
-| 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.0.4` | `2.1.0-test.3` | 2004 / 2103 | `phone-v2.0.4` / `phone-v2.1.0-test.3` |
+| 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.0.4` | `2.1.0-test.5` | 2004 / 2105 | `phone-v2.0.4` / `phone-v2.1.0-test.5` |
 | 电视 | **主版本号取奇数**（3.x、5.x、7.x…） | `3.0.3` | `3.0.5-test.2` | 3003 / 3005 | `tv-v3.0.3` / `tv-v3.0.5-test.2` |
 
 > 测试版用 `x.y.z-test.n` 命名，Release 勾选 **Pre-release**，不计入 `Latest`，
@@ -56,7 +58,7 @@
 | 端 | 架构 | 安装包 | 界面 | 更新渠道 | 当前版本 |
 |---|---|---|---|---|---|
 | 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` | `3.0.3`（测试版 `3.0.5-test.2`） |
-| 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` | `2.0.4`（测试版 `2.1.0-test.3`） |
+| 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` | `2.0.4`（测试版 `2.1.0-test.5`） |
 
 远程管理（扫码输入）只在电视 / 平板端显示；手机端作为输入设备使用。
 
