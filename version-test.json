@@ -1,20 +1,20 @@
 {
-  "version": "3.0.7-test.3",
+  "version": "3.0.7-test.4",
   "releasedAt": "2026-11-26",
   "notes": "测试通道清单。只有版本号带 -test 的安装包才会读这个文件；正式版读 version.json，两条通道互不可见。",
   "channels": {
     "tv": {
-      "version": "3.0.7-test.3",
-      "versionCode": 3009,
+      "version": "3.0.7-test.4",
+      "versionCode": 3010,
       "releasedAt": "2026-11-26",
       "abi": "armeabi-v7a",
-      "size": 21433189,
-      "md5": "9a317391067265977aa35fa5f90ed996",
-      "notes": "用户管理焦点修复、搜索首字母联想恢复、测试通道远程更新",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.3/OrionTV-TV-3.0.7-test.3-armeabi-v7a.apk",
+      "size": 21434901,
+      "md5": "acba0c2d341e9a93a1eb38319df4c0ad",
+      "notes": "联想回归（内置 162 条离线词库 + 热门推荐）、中文输入修复、设置页移除用户管理、密码错误后焦点回退",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.4/OrionTV-TV-3.0.7-test.4-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.3/OrionTV-TV-3.0.7-test.3-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.3/OrionTV-TV-3.0.7-test.3-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.4/OrionTV-TV-3.0.7-test.4-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.4/OrionTV-TV-3.0.7-test.4-armeabi-v7a.apk"
       ]
     },
     "phone": {
