@@ -24,7 +24,7 @@ const TARGET_SDK = 34;
  */
 const CHANNEL_META = {
   phone: { version: "2.1.0", versionCode: 2107 },
-  tv: { version: "3.0.7-test.6", versionCode: 3012 },
+  tv: { version: "3.0.7-test.5", versionCode: 3011 },
 };
 const BUILD_CHANNEL = process.env.ORION_CHANNEL === "tv" ? "tv" : "phone";
 // 允许命令行直接指定版本号，发测试版时不用改这个文件再改回去

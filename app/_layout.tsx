@@ -23,13 +23,6 @@ import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('RootLayout');
 
-// Stack 各页的兜底底色。导航库默认是 rgb(1,1,1) 近纯黑，
-// 和首页的环境壁纸接不上，翻页时会有一瞬间的"黑掉"感。
-const NAV_THEME = {
-  ...DarkTheme,
-  colors: { ...DarkTheme.colors, background: "#0B0E16", card: "#0B0E16" },
-};
-
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
@@ -134,7 +127,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={NAV_THEME}>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <View style={[styles.container, bootBlocking && styles.hidden]}>
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />

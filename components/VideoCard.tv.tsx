@@ -203,9 +203,7 @@ const VideoCard = forwardRef<View, VideoCardProps>(
             )}
           </View>
           <View style={styles.infoContainer}>
-            <ThemedText numberOfLines={1} style={styles.title} ellipsizeMode="tail">
-              {title}
-            </ThemedText>
+            <ThemedText numberOfLines={1}>{title}</ThemedText>
             {isContinueWatching && (
               <View style={styles.infoRow}>
                 <ThemedText style={styles.continueLabel}>
@@ -242,12 +240,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: 12,
-    backgroundColor: "#1A1E28",
+    borderRadius: 8,
+    backgroundColor: "#222",
     overflow: "hidden",
-    // 极细的一圈亮边：海报本身偏暗时，在深色壁纸上不会糊成一团
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
   },
   poster: {
     width: "100%",
@@ -255,17 +250,12 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.22)",
-    borderColor: "rgba(255,255,255,0.92)",
-    borderWidth: 2.5,
-    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderColor: Colors.dark.primary,
+    borderWidth: 2,
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#8FC0FF",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.65,
-    shadowRadius: 16,
-    elevation: 10,
   },
   buttonRow: {
     position: "absolute",
@@ -301,7 +291,7 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     width: CARD_WIDTH,
-    marginTop: 10,
+    marginTop: 8,
     alignItems: "flex-start",
     marginBottom: 16,
     paddingHorizontal: 4,
@@ -312,10 +302,10 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   title: {
-    color: "rgba(255,255,255,0.92)",
-    fontSize: 14,
-    fontWeight: "600",
-    letterSpacing: 0.2,
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+    textAlign: "center",
   },
   yearBadge: {
     position: "absolute",
