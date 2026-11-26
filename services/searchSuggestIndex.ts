@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initialsOf, initialsVariantsOf } from "@/utils/pinyinInitials";
 import { FavoriteManager, PlayRecordManager, SearchHistoryManager } from "./storage";
 import { api } from "./api";
+import { BUILTIN_SEED_TITLES } from "./searchSuggestSeed";
 import Logger from "@/utils/Logger";
 
 const logger = Logger.withTag("SearchSuggest");
@@ -42,6 +43,7 @@ let entries: SuggestEntry[] = [];
 let loadedAt = 0;
 let loadTask: Promise<void> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let builtinLoaded = false;
 
 /** 纯字母数字才算「首字母查询」，其余按中文片段匹配 */
 function isInitialsQuery(query: string): boolean {
@@ -110,8 +112,7 @@ function upsertSync(titles: string[], weight = 1): boolean {
 }
 
 /** 豆瓣榜单当种子：冷启动时也能联想到当下热门剧 */
-async function fetchDoubanSeeds(): Promise<string[]> {
-  const jobs: { type: "movie" | "tv"; tag: string }[] = [
+async function fetchDoubanSeeds(): Promise<string[]> {  const jobs: { type: "movie" | "tv"; tag: string }[] = [
     { type: "tv", tag: "热门" },
     { type: "tv", tag: "国产剧" },
     { type: "tv", tag: "综艺" },
@@ -136,6 +137,19 @@ async function fetchDoubanSeeds(): Promise<string[]> {
     }
   }
   return titles;
+}
+
+/**
+ * 内置种子：打包进 App 的热门剧名。
+ *
+ * 必须先于任何异步加载执行，这样搜索页一挂载就有候选，不用等网络。
+ * 权重给 1（最低），用户自己的历史 / 收藏 / 记录是 2，搜索过的再加权，
+ * 所以内置表只是兜底，不会把用户常用的词挤下去。
+ */
+function loadBuiltinSeeds(): void {
+  if (builtinLoaded) return;
+  builtinLoaded = true;
+  upsertSync(BUILTIN_SEED_TITLES, 1);
 }
 
 async function loadLocalEntries(): Promise<void> {
@@ -205,6 +219,8 @@ export function ensureSuggestIndex(force = false): Promise<void> {
   if (!force && loadedAt && Date.now() - loadedAt < SEED_TTL_MS) return Promise.resolve();
 
   loadTask = (async () => {
+    // 内置种子放在最前面：同步完成，搜索页第一次渲染就能出候选
+    loadBuiltinSeeds();
     await loadLocalEntries();
     await loadLocalSeeds();
     // 豆瓣种子单独放最后，慢也不阻塞前面的本地词
@@ -260,6 +276,16 @@ export function suggestTitles(query: string, limit = 8): SuggestEntry[] {
   return rankSuggestions(entries, query, limit);
 }
 
+/**
+ * 还没输入时的「热门推荐」。
+ *
+ * 搜索页空着的时候也要有点东西可看，否则用户根本不知道有联想这回事；
+ * 权重相同时按插入顺序（内置表的热门顺序）返回。
+ */
+export function hotTitles(limit = 6): SuggestEntry[] {
+  return sortEntries([...entries]).slice(0, limit);
+}
+
 /** 把一次搜索/一次播放的标题记进词库，越用越准 */
 export function rememberTitles(titles: string[], weight = 3): void {
   if (!titles?.length) return;
@@ -271,6 +297,7 @@ export async function resetSuggestIndex(): Promise<void> {
   entries = [];
   loadedAt = 0;
   loadTask = null;
+  builtinLoaded = false;
   try {
     await AsyncStorage.removeItem(STORAGE_KEY);
   } catch {

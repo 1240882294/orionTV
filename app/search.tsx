@@ -1,5 +1,14 @@
-import React, { useState, useRef, useEffect } from "react";
-import { View, TextInput, StyleSheet, Alert, Keyboard, TouchableOpacity, Pressable } from "react-native";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import {
+  View,
+  TextInput,
+  StyleSheet,
+  Alert,
+  Keyboard,
+  TouchableOpacity,
+  Pressable,
+  findNodeHandle,
+} from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import VideoCard from "@/components/VideoCard";
@@ -19,6 +28,7 @@ import ResponsiveHeader from "@/components/navigation/ResponsiveHeader";
 import { DeviceUtils } from "@/utils/DeviceUtils";
 import {
   ensureSuggestIndex,
+  hotTitles,
   rememberTitles,
   suggestTitles,
   SuggestEntry,
@@ -33,13 +43,28 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestEntry[]>([]);
-  // 词库是分批到位的（先本地历史，再网络榜单），这个版本号用来触发重新匹配
+  // 词库是分批到位的（先内置种子，再本地历史，最后网络榜单），这个版本号用来触发重新匹配
   const [suggestVersion, setSuggestVersion] = useState(0);
   const textInputRef = useRef<TextInput>(null);
+  /** 输入框的原生 tag：联想行的 nextFocusUp 指回它，遥控器按上就能回到输入框 */
+  const [inputNativeTag, setInputNativeTag] = useState<number | null>(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const { showModal: showRemoteModal, lastMessage, targetPage, clearMessage } = useRemoteControlStore();
   const { remoteInputEnabled } = useSettingsStore();
   const router = useRouter();
+
+  /**
+   * 回填搜索框文字。
+   *
+   * 输入框是**非受控**的（只给 defaultValue，不给 value），原因：
+   * 受控输入框 + 中文输入法在安卓上会打架 —— 每次 setState 都带着旧的 value 重渲染，
+   * 输入法的组词会被打断或丢字，表现为「联想有候选时中文打不进去」。
+   * 所以文字只由输入法自己维护，程序需要改写时（远程输入、点联想词）走 setNativeProps。
+   */
+  const applyKeyword = useCallback((text: string) => {
+    setKeyword(text);
+    textInputRef.current?.setNativeProps({ text });
+  }, []);
 
   // 响应式布局配置
   const responsiveConfig = useResponsiveLayout();
@@ -50,7 +75,7 @@ export default function SearchScreen() {
     if (lastMessage && targetPage === 'search') {
       logger.debug("Received remote input:", lastMessage);
       const realMessage = lastMessage.split("_")[0];
-      setKeyword(realMessage);
+      applyKeyword(realMessage);
       handleSearch(realMessage);
       clearMessage(); // Clear the message after processing
     }
@@ -95,11 +120,13 @@ export default function SearchScreen() {
    */
   useEffect(() => {
     const q = keyword.trim();
+    const limit = deviceType === "tv" ? 6 : 4;
     if (!q) {
-      setSuggestions([]);
+      // 还没输入时给「热门推荐」：搜索页一进来就能看到联想确实在
+      setSuggestions(deviceType === "mobile" ? [] : hotTitles(limit));
       return;
     }
-    setSuggestions(suggestTitles(q, deviceType === "tv" ? 6 : 4));
+    setSuggestions(suggestTitles(q, limit));
   }, [keyword, suggestVersion, deviceType]);
 
   const handleSearch = async (searchText?: string) => {
@@ -135,7 +162,7 @@ export default function SearchScreen() {
 
   /** 点联想词：填回输入框、收起候选、直接搜 */
   const handlePickSuggestion = (title: string) => {
-    setKeyword(title);
+    applyKeyword(title);
     setSuggestions([]);
     rememberTitles([title], 2);
     void handleSearch(title);
@@ -182,15 +209,23 @@ export default function SearchScreen() {
         >
           <TextInput
             ref={textInputRef}
+            nativeID="search-keyword-input"
             style={dynamicStyles.input}
             placeholder="搜索电影、剧集..."
             placeholderTextColor="#888"
-            value={keyword}
+            defaultValue=""
             onChangeText={setKeyword}
             onSubmitEditing={onSearchPress}
             onFocus={() => setIsInputFocused(true)}
             onBlur={() => setIsInputFocused(false)}
+            onLayout={() => {
+              // 拿到原生 tag，联想行才能通过 nextFocusUp 指回输入框
+              const tag = findNodeHandle(textInputRef.current);
+              if (tag && tag !== inputNativeTag) setInputNativeTag(tag);
+            }}
             returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="none"
           />
         </TouchableOpacity>
         <StyledButton style={dynamicStyles.searchButton} onPress={onSearchPress}>
@@ -206,13 +241,21 @@ export default function SearchScreen() {
       {/* 首字母联想：只是候选，不抢输入焦点，也不改用户已经敲进去的内容 */}
       {suggestions.length > 0 && (
         <View style={dynamicStyles.suggestPanel}>
-          <ThemedText style={dynamicStyles.suggestTitle}>
-            猜你想搜
-          </ThemedText>
+          <View style={dynamicStyles.suggestHead}>
+            <ThemedText style={dynamicStyles.suggestTitle}>
+              {keyword.trim() ? "猜你想搜" : "热门推荐"}
+            </ThemedText>
+            {deviceType !== 'mobile' && (
+              <ThemedText style={dynamicStyles.suggestTip}>
+                按 ↓ 选词 · 按 ↑ 回输入框
+              </ThemedText>
+            )}
+          </View>
           {suggestions.map((item) => (
             <Pressable
               key={item.title}
               focusable
+              nextFocusUp={inputNativeTag ?? undefined}
               onPress={() => handlePickSuggestion(item.title)}
               style={({ focused }: { focused?: boolean }) => [
                 dynamicStyles.suggestRow,
@@ -230,7 +273,7 @@ export default function SearchScreen() {
 
       {keyword.trim().length > 0 && suggestions.length === 0 && deviceType !== 'mobile' && (
         <ThemedText style={dynamicStyles.suggestEmpty}>
-          没匹配到剧名，可以直接输入中文，或点右上角二维码用手机输入
+          没匹配到剧名，直接输入中文即可搜索；也可点右上角二维码用手机输入
         </ThemedText>
       )}
 
@@ -334,11 +377,20 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
       borderWidth: 1,
       borderColor: "rgba(255,255,255,0.08)",
     },
+    suggestHead: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 4,
+      paddingHorizontal: 4,
+    },
     suggestTitle: {
       color: "rgba(255,255,255,0.45)",
       fontSize: isMobile ? 11 : 13,
-      marginBottom: 4,
-      marginLeft: 4,
+    },
+    suggestTip: {
+      color: "rgba(255,255,255,0.28)",
+      fontSize: 12,
     },
     suggestRow: {
       flexDirection: "row",

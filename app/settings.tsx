@@ -13,7 +13,6 @@ import { useRemoteControlStore } from "@/stores/remoteControlStore";
 import { APIConfigSection } from "@/components/settings/APIConfigSection";
 import { RemoteInputSection } from "@/components/settings/RemoteInputSection";
 import { AdBlockSection } from "@/components/settings/AdBlockSection";
-import { UserAccountSection } from "@/components/settings/UserAccountSection";
 import { UpdateSection } from "@/components/settings/UpdateSection";
 // import { VideoSourceSection } from "@/components/settings/VideoSourceSection";
 import Toast from "react-native-toast-message";
@@ -181,17 +180,6 @@ export default function SettingsScreen() {
         />
       ),
       key: "adblock",
-    },
-    {
-      component: (
-        <UserAccountSection
-          onFocus={() => {
-            setCurrentFocusIndex(3);
-            setCurrentSection("account");
-          }}
-        />
-      ),
-      key: "account",
     },
     Platform.OS === "android" && {
       component: <UpdateSection />,

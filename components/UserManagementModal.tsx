@@ -49,6 +49,8 @@ export const UserManagementModal: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [focusedField, setFocusedField] = useState<"username" | "password" | null>(null);
+  /** 登录失败的常驻提示（Toast 3 秒就没了，用户回头看不到失败原因） */
+  const [formError, setFormError] = useState<string | null>(null);
 
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
@@ -98,6 +100,7 @@ export const UserManagementModal: React.FC = () => {
       setUsername("");
       setPassword("");
       setFocusedField(null);
+      setFormError(null);
     }
   }, [visible]);
 
@@ -137,15 +140,48 @@ export const UserManagementModal: React.FC = () => {
     [switchTo, close]
   );
 
+  /**
+   * 把焦点送回输入框。
+   *
+   * 电视端登录失败后，焦点停在「登录并保存」按钮上，遥控器按上却回不到输入框
+   * （Modal 的 Dialog 窗口里，输入法还占着方向键），用户就没法改密码重试。
+   * 这里直接对输入框 requestFocus，并多试几次 —— 第一次常常被窗口/输入法吞掉。
+   */
+  const focusField = useCallback((field: "username" | "password") => {
+    const getTarget = () => (field === "username" ? usernameRef.current : passwordRef.current);
+    getTarget()?.focus();
+    [120, 420, 900].forEach((delay) => {
+      setTimeout(() => getTarget()?.focus(), delay);
+    });
+  }, []);
+
   const handleAdd = useCallback(async () => {
+    setFormError(null);
+    // 空值先挡掉：直接聚焦到空的那个框，别让用户自己找
+    if (!username.trim()) {
+      setFormError("请输入用户名");
+      focusField("username");
+      return;
+    }
+    if (!password) {
+      setFormError("请输入密码");
+      focusField("password");
+      return;
+    }
+
     const ok = await loginAs(username, password);
     if (ok) {
       setView("list");
       setUsername("");
       setPassword("");
       close();
+      return;
     }
-  }, [loginAs, username, password, close]);
+
+    // 失败：保留用户名，把光标送回密码框，选中原文，直接重打就能覆盖
+    setFormError("账号或密码不正确，请重新输入");
+    focusField("password");
+  }, [loginAs, username, password, close, focusField]);
 
   const handleLogout = useCallback(async () => {
     await logoutCurrent();
@@ -389,6 +425,12 @@ export const UserManagementModal: React.FC = () => {
                 登录另一个账号，成功后会自动切换并把账号保存在本机
               </ThemedText>
 
+              {formError ? (
+                <View style={styles.formError}>
+                  <ThemedText style={styles.formErrorText}>{formError}</ThemedText>
+                </View>
+              ) : null}
+
               <TextInput
                 ref={usernameRef}
                 style={[
@@ -401,7 +443,12 @@ export const UserManagementModal: React.FC = () => {
                 autoCapitalize="none"
                 autoCorrect={false}
                 value={username}
-                onChangeText={setUsername}
+                onChangeText={(text) => {
+                  setUsername(text);
+                  if (formError) setFormError(null);
+                }}
+                focusable
+                selectTextOnFocus
                 returnKeyType="next"
                 blurOnSubmit={false}
                 onFocus={() => setFocusedField("username")}
@@ -420,7 +467,12 @@ export const UserManagementModal: React.FC = () => {
                 placeholderTextColor="#77777f"
                 secureTextEntry
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (formError) setFormError(null);
+                }}
+                focusable
+                selectTextOnFocus
                 returnKeyType="go"
                 onFocus={() => setFocusedField("password")}
                 onBlur={() => setFocusedField((current) => (current === "password" ? null : current))}
@@ -721,6 +773,19 @@ const styles = StyleSheet.create({
   },
   dangerButtonFocused: {
     borderColor: "white",
+  },
+  formError: {
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: "rgba(255,59,48,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,59,48,0.45)",
+  },
+  formErrorText: {
+    color: "#ff6961",
+    fontSize: 13,
   },
   input: {
     height: 50,
