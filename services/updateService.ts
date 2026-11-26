@@ -7,6 +7,8 @@ import {
   UPDATE_CONFIG,
   getUpdateChannel,
   getCurrentVersion as readChannelVersion,
+  getManifestFile,
+  IS_TEST_BUILD,
   UpdateChannel,
 } from '../constants/UpdateConfig';
 import Logger from '@/utils/Logger';
@@ -117,7 +119,10 @@ class UpdateService {
           fallbackUrl,
         ].filter((item, index, arr) => !!item && item !== downloadUrl && arr.indexOf(item) === index);
 
-        logger.info(`[Update] manifest=${baseUrl} channel=${channel} version=${remoteVersion}`);
+        logger.info(
+          `[Update] manifest=${getManifestFile()} src=${baseUrl} ` +
+            `mode=${IS_TEST_BUILD ? "test" : "release"} channel=${channel} version=${remoteVersion}`,
+        );
         return {
           version: remoteVersion,
           downloadUrl,

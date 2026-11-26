@@ -1,0 +1,35 @@
+{
+  "version": "3.0.7-test.2",
+  "releasedAt": "2026-11-26",
+  "notes": "测试通道清单。只有版本号带 -test 的安装包才会读这个文件；正式版读 version.json，两条通道互不可见。",
+  "channels": {
+    "tv": {
+      "version": "3.0.7-test.2",
+      "versionCode": 3008,
+      "releasedAt": "2026-11-26",
+      "abi": "armeabi-v7a",
+      "size": 21432764,
+      "md5": "c7653d4c3462f465e1dc0361bd02e2cd",
+      "notes": "用户管理焦点修复、搜索首字母联想恢复",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.2/OrionTV-TV-3.0.7-test.2-armeabi-v7a.apk",
+      "mirrors": [
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.2/OrionTV-TV-3.0.7-test.2-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.2/OrionTV-TV-3.0.7-test.2-armeabi-v7a.apk"
+      ]
+    },
+    "phone": {
+      "version": "2.1.0-test.6",
+      "versionCode": 2106,
+      "releasedAt": "2026-11-26",
+      "abi": "arm64-v8a",
+      "size": 26569387,
+      "md5": "fd657c958b98b471b8cd3511cb4cc9fd",
+      "notes": "移除投屏功能，保留锁屏 / 3 倍速 / 不裁剪",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0-test.6/OrionTV-Phone-2.1.0-test.6-arm64-v8a.apk",
+      "mirrors": [
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0-test.6/OrionTV-Phone-2.1.0-test.6-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0-test.6/OrionTV-Phone-2.1.0-test.6-arm64-v8a.apk"
+      ]
+    }
+  }
+}

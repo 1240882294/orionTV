@@ -2,7 +2,7 @@
   "version": "2.0.4",
   "versionCode": 2004,
   "releasedAt": "2026-11-25",
-  "notes": "电视端正式版仍为 3.0.3，手机端 2.0.4。测试版 3.0.5-test.2 只发布到 Release，不进入更新清单。",
+  "notes": "正式通道清单：电视端 3.0.3，手机端 2.0.4。测试版走 version-test.json，不进这份清单，正式用户不会收到测试版推送。",
   "channels": {
     "tv": {
       "version": "3.0.3",

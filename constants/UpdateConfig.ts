@@ -4,6 +4,7 @@ import { BUILD_CHANNEL, BUILD_VERSION } from "./BuildInfo";
  * 远程更新配置
  *
  * 更新清单不再依赖上游仓库，改为读取本项目仓库根目录的 version.json。
+ * 测试包读同目录下的 version-test.json —— 两条通道各看各的，互不推送。
  * 清单结构（见仓库根目录 version.json）：
  * {
  *   "version": "1.1.0",
@@ -23,6 +24,22 @@ const BRANCH = "main";
 const RAW_BASE = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}`;
 
 export type UpdateChannel = "tv" | "phone";
+
+/**
+ * 这个安装包是不是测试版：版本号里带 `-test` 段（3.0.7-test.3）。
+ *
+ * 测试版和正式版读**两份不同的清单**：
+ *   - 正式包 → version.json（只有正式版本号）
+ *   - 测试包 → version-test.json（只有测试版本号）
+ *
+ * 两条通道互不可见，所以测试版发多少版都不会推给正式用户；
+ * 反过来，正式版用户也永远不会被推去装测试包。
+ */
+export const IS_TEST_BUILD = /-test(\.|$)/i.test(BUILD_VERSION);
+
+/** 当前包要拉的清单文件名 */
+export const getManifestFile = (): string =>
+  IS_TEST_BUILD ? "version-test.json" : "version.json";
 
 /**
  * 渠道以**安装包**为准，不看当前设备。
@@ -66,10 +83,11 @@ export const UPDATE_CONFIG = {
   CHECK_INTERVAL: 12 * 60 * 60 * 1000, // 12 小时
 
   // 更新清单地址（按顺序回退，前面的不通就试后面的）
+  // 正式包只读 version.json，测试包只读 version-test.json
   MANIFEST_URLS: [
-    `${RAW_BASE}/version.json`,
-    `https://ghfast.top/${RAW_BASE}/version.json`,
-    `https://cdn.jsdelivr.net/gh/${OWNER}/${REPO}@${BRANCH}/version.json`,
+    `${RAW_BASE}/${getManifestFile()}`,
+    `https://ghfast.top/${RAW_BASE}/${getManifestFile()}`,
+    `https://cdn.jsdelivr.net/gh/${OWNER}/${REPO}@${BRANCH}/${getManifestFile()}`,
   ],
 
   // 兜底下载地址：清单里没给 url 时按「渠道 + 版本号」拼 GitHub Release 地址。
