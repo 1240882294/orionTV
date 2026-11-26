@@ -51,6 +51,8 @@ export const UserManagementModal: React.FC = () => {
   const [focusedField, setFocusedField] = useState<"username" | "password" | null>(null);
   /** 登录失败的常驻提示（Toast 3 秒就没了，用户回头看不到失败原因） */
   const [formError, setFormError] = useState<string | null>(null);
+  /** 首次打开面板时账号还没从本机存储读回来，先显示「读取中」而不是空态 */
+  const [hydrating, setHydrating] = useState(false);
 
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
@@ -87,20 +89,44 @@ export const UserManagementModal: React.FC = () => {
     });
   }, []);
 
-  // 每次打开都回到列表首页，避免上次停在「添加账号」表单；
-  // 但没有账号可列时直接进添加表单 —— 否则用户打开面板只看到一个空列表，
-  // 电视端还要再找一次「添加账号」按钮，很容易以为「点了没反应」
+  /**
+   * 每次打开**一律**进「用户管理」列表页，绝不自动跳到添加表单。
+   *
+   * 这里踩过一个坑：`open()` 只是 `set({ visible: true })`，账号数据是随后
+   * 异步 `refresh()` 才读出来的。如果在这一帧就按 `profiles.length === 0`
+   * 判定「没有账号」并直接进添加表单，那么冷启动第一次点右上角必定蹦到
+   * 「添加账号」，第二次打开（数据已在内存）又正常 —— 就是用户反馈的那个
+   * 「只有第一次启动才会出现」的 bug。
+   *
+   * 正确做法：永远停在列表页，列表为空就显示空态文案，用户点下方
+   * 「添加账号」再进表单。数据还没到时先等一次刷新，避免闪一下空态。
+   */
   useEffect(() => {
     if (visible) {
       openedAtRef.current = Date.now();
-      const state = useUserStore.getState();
-      const noAccount = !state.activeId && state.profiles.length === 0;
-      setView(noAccount ? "add" : "list");
+      setView("list");
       setConfirmLogout(false);
       setUsername("");
       setPassword("");
       setFocusedField(null);
       setFormError(null);
+
+      let cancelled = false;
+      const state = useUserStore.getState();
+      // 内存里还没有账号数据时才等一次刷新（open() 里那次可能还没回来）
+      const needWait = state.profiles.length === 0 && !state.activeId;
+      setHydrating(needWait);
+      if (needWait) {
+        state
+          .refresh()
+          .catch(() => undefined)
+          .finally(() => {
+            if (!cancelled) setHydrating(false);
+          });
+      }
+      return () => {
+        cancelled = true;
+      };
     }
   }, [visible]);
 
@@ -268,10 +294,17 @@ export const UserManagementModal: React.FC = () => {
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
                   >
-                    {profiles.length === 0 ? (
+                    {hydrating ? (
+                      <View style={styles.emptyBox}>
+                        <ActivityIndicator color={Colors.dark.primary} />
+                        <ThemedText style={[styles.emptyText, { marginTop: 10 }]}>
+                          正在读取本机账号…
+                        </ThemedText>
+                      </View>
+                    ) : profiles.length === 0 ? (
                       <View style={styles.emptyBox}>
                         <ThemedText style={styles.emptyText}>
-                          还没有保存过其他账号，点下方「添加账号」登录。
+                          还没有保存过账号，点下方「添加账号」登录。
                         </ThemedText>
                       </View>
                     ) : (
@@ -386,18 +419,21 @@ export const UserManagementModal: React.FC = () => {
                         <ThemedText style={styles.footerButtonText}>添加账号</ThemedText>
                       </Pressable>
 
-                      <Pressable
-                        focusable
-                        onPress={() => setConfirmLogout(true)}
-                        style={({ focused }: { focused?: boolean }) => [
-                          styles.footerButton,
-                          styles.outlineButton,
-                          focused && styles.outlineButtonFocused,
-                        ]}
-                      >
-                        <LogOut color="white" size={18} />
-                        <ThemedText style={styles.footerButtonText}>退出当前账户</ThemedText>
-                      </Pressable>
+                      {/* 没登录时没有可退出的账号，按钮留着只会让人点了个寂寞 */}
+                      {activeId && (
+                        <Pressable
+                          focusable
+                          onPress={() => setConfirmLogout(true)}
+                          style={({ focused }: { focused?: boolean }) => [
+                            styles.footerButton,
+                            styles.outlineButton,
+                            focused && styles.outlineButtonFocused,
+                          ]}
+                        >
+                          <LogOut color="white" size={18} />
+                          <ThemedText style={styles.footerButtonText}>退出当前账户</ThemedText>
+                        </Pressable>
+                      )}
                     </View>
                   )}
                 </>
