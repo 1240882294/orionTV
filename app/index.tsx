@@ -1,13 +1,11 @@
 import React, { useEffect, useCallback, useRef, useState } from "react";
 import { View, StyleSheet, ActivityIndicator, FlatList, Pressable, Animated, StatusBar, Platform, BackHandler, ToastAndroid } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { api } from "@/services/api";
 import VideoCard from "@/components/VideoCard";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Search, Settings, Users, Heart } from "lucide-react-native";
-import { StyledButton } from "@/components/StyledButton";
 import useHomeStore, { RowItem, Category } from "@/stores/homeStore";
 import { useUserStore } from "@/stores/userStore";
 import CustomScrollView from "@/components/CustomScrollView";
@@ -15,13 +13,66 @@ import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { getCommonResponsiveStyles } from "@/utils/ResponsiveStyles";
 import ResponsiveNavigation from "@/components/navigation/ResponsiveNavigation";
 import { useApiConfig, getApiConfigErrorMessage } from "@/hooks/useApiConfig";
-import { Colors } from "@/constants/Colors";
+import { AmbientBackground } from "@/components/AmbientBackground";
+import { CategoryChip } from "@/components/CategoryChip";
+import { useButtonAnimation } from "@/hooks/useAnimation";
 
 const LOAD_MORE_THRESHOLD = 200;
 
+/**
+ * 顶部图标按钮（收藏 / 搜索 / 设置 / 账户）。
+ *
+ * 原来直接复用 StyledButton ghost，焦点态是「灰底 + 绿描边」，在深色壁纸上
+ * 显得脏。改成玻璃圆底：静态 7% 白，焦点时翻成白色实底、图标转深色 ——
+ * 和分类胶囊的选中逻辑一致，整屏只有一套视觉语言。
+ */
+const HeaderIconButton: React.FC<{
+  onPress: () => void;
+  children: (color: string) => React.ReactNode;
+}> = ({ onPress, children }) => {
+  const [focused, setFocused] = useState(false);
+  const animationStyle = useButtonAnimation(focused, 1.08);
+
+  return (
+    <Animated.View style={[animationStyle, { zIndex: focused ? 10 : 1 }]}>
+      <Pressable
+        focusable
+        onPress={onPress}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={[headerButtonStyles.button, focused && headerButtonStyles.buttonFocused]}
+      >
+        {children(focused ? "#0A0D14" : "rgba(255,255,255,0.86)")}
+      </Pressable>
+    </Animated.View>
+  );
+};
+
+const headerButtonStyles = StyleSheet.create({
+  button: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginLeft: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  buttonFocused: {
+    backgroundColor: "#F2F5F8",
+    borderColor: "#FFFFFF",
+    shadowColor: "#7FB6FF",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+});
+
 export default function HomeScreen() {
   const router = useRouter();
-  const colorScheme = "dark";
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
@@ -153,12 +204,11 @@ export default function HomeScreen() {
   const renderCategory = ({ item }: { item: Category }) => {
     const isSelected = selectedCategory?.title === item.title;
     return (
-      <StyledButton
-        text={item.title}
+      <CategoryChip
+        label={item.title}
+        selected={isSelected}
         onPress={() => handleCategorySelect(item)}
-        isSelected={isSelected}
         style={dynamicStyles.categoryButton}
-        textStyle={dynamicStyles.categoryText}
       />
     );
   };
@@ -202,22 +252,18 @@ export default function HomeScreen() {
           <ThemedText style={dynamicStyles.headerTitle}>首页</ThemedText>
         </View>
         <View style={dynamicStyles.rightHeaderButtons}>
-          <StyledButton style={dynamicStyles.iconButton} onPress={() => router.push("/favorites")} variant="ghost">
-            <Heart color={colorScheme === "dark" ? "white" : "black"} size={24} />
-          </StyledButton>
-          <StyledButton
-            style={dynamicStyles.iconButton}
-            onPress={() => router.push({ pathname: "/search" })}
-            variant="ghost"
-          >
-            <Search color={colorScheme === "dark" ? "white" : "black"} size={24} />
-          </StyledButton>
-          <StyledButton style={dynamicStyles.iconButton} onPress={() => router.push("/settings")} variant="ghost">
-            <Settings color={colorScheme === "dark" ? "white" : "black"} size={24} />
-          </StyledButton>
-          <StyledButton style={dynamicStyles.iconButton} onPress={openUserModal} variant="ghost">
-            <Users color={colorScheme === "dark" ? "white" : "black"} size={24} />
-          </StyledButton>
+          <HeaderIconButton onPress={() => router.push("/favorites")}>
+            {(color) => <Heart color={color} size={22} />}
+          </HeaderIconButton>
+          <HeaderIconButton onPress={() => router.push({ pathname: "/search" })}>
+            {(color) => <Search color={color} size={22} />}
+          </HeaderIconButton>
+          <HeaderIconButton onPress={() => router.push("/settings")}>
+            {(color) => <Settings color={color} size={22} />}
+          </HeaderIconButton>
+          <HeaderIconButton onPress={openUserModal}>
+            {(color) => <Users color={color} size={22} />}
+          </HeaderIconButton>
         </View>
       </View>
     );
@@ -237,17 +283,18 @@ export default function HomeScreen() {
       marginBottom: spacing,
     },
     headerTitle: {
-      fontSize: deviceType === "mobile" ? 24 : deviceType === "tablet" ? 28 : 32,
-      fontWeight: "bold",
-      paddingTop: 16,
+      fontSize: deviceType === "mobile" ? 24 : deviceType === "tablet" ? 28 : 30,
+      fontWeight: "700",
+      letterSpacing: 1.2,
+      paddingTop: 12,
+      color: "#F4F7FB",
+      textShadowColor: "rgba(0,0,0,0.45)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 8,
     },
     rightHeaderButtons: {
       flexDirection: "row",
       alignItems: "center",
-    },
-    iconButton: {
-      borderRadius: 30,
-      marginLeft: spacing / 2,
     },
     categoryContainer: {
       paddingBottom: spacing / 2,
@@ -256,14 +303,10 @@ export default function HomeScreen() {
       paddingHorizontal: spacing,
     },
     categoryButton: {
-      paddingHorizontal: deviceType === "tv" ? spacing / 4 : spacing / 2,
-      paddingVertical: spacing / 2,
-      borderRadius: deviceType === "mobile" ? 6 : 8,
-      marginHorizontal: deviceType === "tv" ? spacing / 4 : spacing / 2, // TV端使用更小的间距
+      marginHorizontal: deviceType === "tv" ? 5 : spacing / 2,
     },
-    categoryText: {
-      fontSize: deviceType === "mobile" ? 14 : 16,
-      fontWeight: "500",
+    subCategoryButton: {
+      marginHorizontal: 5,
     },
     contentContainer: {
       flex: 1,
@@ -271,7 +314,7 @@ export default function HomeScreen() {
   });
 
   const content = (
-    <ThemedView style={[commonStyles.container, dynamicStyles.container]}>
+    <AmbientBackground style={[commonStyles.container, dynamicStyles.container]}>
       {/* 状态栏 */}
       {deviceType === "mobile" && <StatusBar barStyle="light-content" />}
 
@@ -298,14 +341,13 @@ export default function HomeScreen() {
             renderItem={({ item, index }) => {
               const isSelected = selectedTag === item;
               return (
-                <StyledButton
+                <CategoryChip
+                  compact
                   hasTVPreferredFocus={index === 0}
-                  text={item}
+                  label={item}
+                  selected={isSelected}
                   onPress={() => handleTagSelect(item)}
-                  isSelected={isSelected}
-                  style={dynamicStyles.categoryButton}
-                  textStyle={dynamicStyles.categoryText}
-                  variant="ghost"
+                  style={dynamicStyles.subCategoryButton}
                 />
               );
             }}
@@ -362,7 +404,7 @@ export default function HomeScreen() {
           />
         </Animated.View>
       )}
-    </ThemedView>
+    </AmbientBackground>
   );
 
   // 根据设备类型决定是否包装在响应式导航中
