@@ -20,7 +20,6 @@ import {
   Minimize,
   SkipBack,
   SkipForward,
-  Cast,
   Lock,
   LockOpen,
 } from "lucide-react-native";
@@ -30,10 +29,6 @@ import useDetailStore from "@/stores/detailStore";
 interface MobilePlayerControlsProps {
   showControls: boolean;
   setShowControls: (show: boolean) => void;
-  /** 打开投屏面板；不传就不显示投屏入口（电视端不需要） */
-  onOpenCast?: () => void;
-  /** 有面板盖在画面上时，先别自动隐藏控件（否则面板还开着，底下先闪一下） */
-  holdControls?: boolean;
 }
 
 const formatTime = (milliseconds: number) => {
@@ -137,8 +132,6 @@ const SeekSlider: React.FC<{
 export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
   showControls,
   setShowControls,
-  onOpenCast,
-  holdControls = false,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -181,18 +174,10 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
 
   // 播放中 4 秒无操作自动隐藏控件
   useEffect(() => {
-    if (!showControls || !isPlaying || anyModalOpen || screenLocked || holdControls) return;
+    if (!showControls || !isPlaying || anyModalOpen || screenLocked) return;
     const timer = setTimeout(() => setShowControls(false), 4000);
     return () => clearTimeout(timer);
-  }, [
-    showControls,
-    isPlaying,
-    anyModalOpen,
-    screenLocked,
-    holdControls,
-    interactionTick,
-    setShowControls,
-  ]);
+  }, [showControls, isPlaying, anyModalOpen, screenLocked, interactionTick, setShowControls]);
 
   // 锁屏图标：锁定 2.6 秒后自动消隐；点屏幕用 lockHintTick 重新计时
   useEffect(() => {
@@ -398,20 +383,6 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
             <SkipForward color="white" size={18} />
             <Text style={styles.actionText}>下一集</Text>
           </Pressable>
-
-          {onOpenCast ? (
-            <Pressable
-              onPress={guard(() => {
-                setShowControls(true);
-                onOpenCast();
-              })}
-              style={styles.actionButton}
-              hitSlop={6}
-            >
-              <Cast color="white" size={18} />
-              <Text style={styles.actionText}>投屏</Text>
-            </Pressable>
-          ) : null}
         </View>
       </View>
     </>

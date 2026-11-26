@@ -32,7 +32,6 @@ import { EpisodeSelectionModal } from "@/components/EpisodeSelectionModal";
 import { SourceSelectionModal } from "@/components/SourceSelectionModal";
 import { SpeedSelectionModal } from "@/components/SpeedSelectionModal";
 import { SeekingBar } from "@/components/SeekingBar";
-import { CastPanel } from "@/components/CastPanel";
 import VideoLoadingAnimation from "@/components/VideoLoadingAnimation";
 import useDetailStore from "@/stores/detailStore";
 import { useTVRemoteHandler } from "@/hooks/useTVRemoteHandler";
@@ -42,7 +41,6 @@ import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { useVideoHandlers } from "@/hooks/useVideoHandlers";
 import { useAdFreePlayback } from "@/hooks/useAdFreePlayback";
 import { testSourcesSpeed, speedOf, getCachedSpeeds, setCachedSpeeds } from "@/services/sourceSpeedTest";
-import { useCastStore, shutdownCast } from "@/stores/castStore";
 import Logger from "@/utils/Logger";
 
 const logger = Logger.withTag("PlayScreen");
@@ -92,9 +90,6 @@ export default function PlayScreen() {
   // TV 判定：电视端（Platform.isTV）或进入时就是宽屏布局的设备
   const isTVDevice = Platform.isTV || initialDeviceTypeRef.current === "tv";
   const isTouchDevice = !isTVDevice;
-
-  // 投屏面板：只有手机端有入口
-  const [showCastPanel, setShowCastPanel] = useState(false);
 
   const {
     episodeIndex: episodeIndexStr,
@@ -358,8 +353,6 @@ export default function PlayScreen() {
     return () => {
       logger.info(`[PERF] PlayScreen unmounting - calling reset()`);
       reset();
-      // 投屏中直接退出播放页：结算进度并断开，别把定时器留在后台
-      shutdownCast();
     };
   }, [reset]);
 
@@ -549,18 +542,6 @@ export default function PlayScreen() {
     }, DOUBLE_TAP_MS);
   }, [onScreenPress]);
 
-  // 投屏期间本机保持暂停：用户可能在手机上误点播放，声音会和电视叠在一起
-  useEffect(() => {
-    const unsubscribe = useCastStore.subscribe((state) => {
-      if (!state.activeDevice) return;
-      const player = usePlayerStore.getState();
-      if (player.status?.isLoaded && player.status.isPlaying) {
-        player.videoRef?.current?.pauseAsync().catch(() => {});
-      }
-    });
-    return unsubscribe;
-  }, []);
-
   // 离开页面时别留着未执行的单击定时器
   useEffect(
     () => () => {
@@ -725,21 +706,12 @@ export default function PlayScreen() {
 
       {/* 5. 控件层：手机端全屏（组件内部自带 zIndex/elevation） */}
       {isTouchDevice && isFullscreen && (
-        <MobilePlayerControls
-          showControls={showControls}
-          setShowControls={setShowControls}
-          onOpenCast={() => setShowCastPanel(true)}
-          holdControls={showCastPanel}
-        />
+        <MobilePlayerControls showControls={showControls} setShowControls={setShowControls} />
       )}
 
       {/* 6. 手机端竖屏信息面板 */}
       {showInfoPanel && (
-        <MobilePlayerInfoPanel
-          videoTop={videoTop}
-          videoHeight={videoHeight}
-          onOpenCast={() => setShowCastPanel(true)}
-        />
+        <MobilePlayerInfoPanel videoTop={videoTop} videoHeight={videoHeight} />
       )}
 
       {/* 7. 电视端小屏模式：右侧剧集资料 */}
@@ -785,11 +757,6 @@ export default function PlayScreen() {
       {!isTVDevice && <EpisodeSelectionModal />}
       <SourceSelectionModal />
       <SpeedSelectionModal />
-
-      {/* 投屏面板：设备选择 + 遥控器 */}
-      {isTouchDevice && (
-        <CastPanel visible={showCastPanel} onClose={() => setShowCastPanel(false)} />
-      )}
     </ThemedView>
   );
 }
