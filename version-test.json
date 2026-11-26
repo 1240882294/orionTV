@@ -18,17 +18,17 @@
       ]
     },
     "phone": {
-      "version": "2.1.0-test.6",
-      "versionCode": 2106,
+      "version": "2.1.0",
+      "versionCode": 2107,
       "releasedAt": "2026-11-26",
       "abi": "arm64-v8a",
-      "size": 26569387,
-      "md5": "fd657c958b98b471b8cd3511cb4cc9fd",
-      "notes": "移除投屏功能，保留锁屏 / 3 倍速 / 不裁剪",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0-test.6/OrionTV-Phone-2.1.0-test.6-arm64-v8a.apk",
+      "size": 26637642,
+      "md5": "b6288e9dd7598026d7780bce513e17ae",
+      "notes": "新增屏幕锁、长按右侧屏幕 3 倍速、全屏底部改为上一集/下一集；全屏画面完整不裁剪，控件层不再压暗整屏，锁屏时的画面蒙版残留已消除。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0/OrionTV-Phone-2.1.0-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0-test.6/OrionTV-Phone-2.1.0-test.6-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0-test.6/OrionTV-Phone-2.1.0-test.6-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0/OrionTV-Phone-2.1.0-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0/OrionTV-Phone-2.1.0-arm64-v8a.apk"
       ]
     }
   }

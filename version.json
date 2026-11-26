@@ -1,8 +1,8 @@
 {
-  "version": "2.0.4",
-  "versionCode": 2004,
-  "releasedAt": "2026-11-25",
-  "notes": "正式通道清单：电视端 3.0.3，手机端 2.0.4。测试版走 version-test.json，不进这份清单，正式用户不会收到测试版推送。",
+  "version": "2.1.0",
+  "versionCode": 2107,
+  "releasedAt": "2026-11-26",
+  "notes": "正式通道清单：电视端 3.0.3，手机端 2.1.0。测试版走 version-test.json，不进这份清单，正式用户不会收到测试版推送。",
   "channels": {
     "tv": {
       "version": "3.0.3",
@@ -19,17 +19,17 @@
       ]
     },
     "phone": {
-      "version": "2.0.4",
-      "versionCode": 2004,
-      "releasedAt": "2026-11-25",
+      "version": "2.1.0",
+      "versionCode": 2107,
+      "releasedAt": "2026-11-26",
       "abi": "arm64-v8a",
-      "size": 26563015,
-      "md5": "0fbba59e6fe04d7580007888d0dbb415",
-      "notes": "修复：双击暂停/播放时中央图标与控件按钮重叠造成的重影，现在只保留控件自身的播放/暂停按钮作为反馈。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.0.4/OrionTV-Phone-2.0.4-arm64-v8a.apk",
+      "size": 26637642,
+      "md5": "b6288e9dd7598026d7780bce513e17ae",
+      "notes": "新增屏幕锁、长按右侧屏幕 3 倍速、全屏底部改为上一集/下一集；全屏画面完整不裁剪，控件层不再压暗整屏，锁屏时的画面蒙版残留已消除。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0/OrionTV-Phone-2.1.0-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.0.4/OrionTV-Phone-2.0.4-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.0.4/OrionTV-Phone-2.0.4-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0/OrionTV-Phone-2.1.0-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0/OrionTV-Phone-2.1.0-arm64-v8a.apk"
       ]
     }
   }
