@@ -57,12 +57,19 @@ const ANDROID_MIME_TYPE = 'application/vnd.android.package-archive';
 const DOWNLOAD_CACHE_KEY = 'update_downloaded_apk';
 
 /** 下载开始后的观察窗口：这段时间的平均速度低于阈值就判定为「假快」线路 */
-const SLOW_PROBE_MS = 6_000;
-/** 低速阈值（KB/s）；bytes/ms 与 KB/s 数值等价 */
-const SLOW_THRESHOLD_KB = 80;
+const SLOW_PROBE_MS = 8_000;
+/**
+ * 低速阈值（KB/s）；bytes/ms 与 KB/s 数值等价。
+ *
+ * 原来是 80：实测镜像在晚高峰只有 60~80KB/s，会被整条误杀，
+ * 三条候选全部中止就直接判下载失败。降到 35 后仍能把 15KB/s 的直连筛掉，
+ * 又不会把「慢但能下完」的镜像踢出局（21MB / 40KB/s ≈ 9 分钟，仍在 10 分钟超时内）。
+ */
+const SLOW_THRESHOLD_KB = 35;
 /** 测速时只拉这么多字节，够区分 1.4MB/s 与 14KB/s */
 const SPEED_PROBE_BYTES = 512 * 1024;
-const SPEED_PROBE_TIMEOUT_MS = 2_500;
+/** 512KB 在 130KB/s 下要 4 秒，2.5 秒会把慢速镜像直接判 0 分 */
+const SPEED_PROBE_TIMEOUT_MS = 4_000;
 
 const fetchWithTimeout = async (url: string, timeoutMs: number): Promise<Response> => {
   const controller = new AbortController();
