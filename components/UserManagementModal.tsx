@@ -8,6 +8,7 @@ import {
   TextInput,
   useWindowDimensions,
   View,
+  TVFocusGuideView,
 } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -51,14 +52,38 @@ export const UserManagementModal: React.FC = () => {
 
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
+  /**
+   * 刚打开的时间戳。
+   *
+   * 电视端按「确认」打开面板时，那一下按键会在 Modal 挂载后继续派发，
+   * 落到全屏的关闭遮罩上 —— 面板弹出又被自己关掉，用户看到的就是「点了没反应」。
+   * 打开后 450ms 内忽略遮罩点击，把这个穿透挡掉。
+   */
+  const openedAtRef = useRef(0);
 
   // react-native-tvos 的原生 TextInput 支持 hasTVPreferredFocus，RN 的 TS 类型里没有
   const tvPreferredFocusProps: any = isTV ? { hasTVPreferredFocus: true } : {};
 
-  // 每次打开都回到列表首页，避免上次停在「添加账号」表单
+  /**
+   * 电视端底部按钮的焦点兜底。
+   *
+   * Modal 是独立的 Dialog window，内容挂载时窗口往往还没 ready，
+   * 子元素上的 `hasTVPreferredFocus` 会被丢掉 —— 面板明明弹出来了，
+   * 遥控器却按哪儿都没反应，表现为「点了用户管理，进不去添加账号」。
+   * `TVFocusGuideView autoFocus` 会在窗口就绪后把焦点交给第一个可聚焦子元素。
+   */
+  const FocusWrap: any = isTV ? TVFocusGuideView : View;
+  const autoFocusProps: any = isTV ? { autoFocus: true } : {};
+
+  // 每次打开都回到列表首页，避免上次停在「添加账号」表单；
+  // 但没有账号可列时直接进添加表单 —— 否则用户打开面板只看到一个空列表，
+  // 电视端还要再找一次「添加账号」按钮，很容易以为「点了没反应」
   useEffect(() => {
     if (visible) {
-      setView("list");
+      openedAtRef.current = Date.now();
+      const state = useUserStore.getState();
+      const noAccount = !state.activeId && state.profiles.length === 0;
+      setView(noAccount ? "add" : "list");
       setConfirmLogout(false);
       setUsername("");
       setPassword("");
@@ -66,12 +91,18 @@ export const UserManagementModal: React.FC = () => {
     }
   }, [visible]);
 
+  /** 遮罩 / 关闭按钮统一走这里：打开后的头 450ms 不响应，避免按键穿透把面板关掉 */
+  const requestClose = useCallback(() => {
+    if (Date.now() - openedAtRef.current < 450) return;
+    close();
+  }, [close]);
+
   // 电视端进入表单时把焦点直接放到用户名，遥控器不用先摸索
   useEffect(() => {
     if (!visible || !isTV || view !== "add") return;
     const timer = setTimeout(() => {
       usernameRef.current?.focus();
-    }, 180);
+    }, 320);
     return () => clearTimeout(timer);
   }, [visible, isTV, view]);
 
@@ -113,7 +144,7 @@ export const UserManagementModal: React.FC = () => {
       <View style={styles.overlay}>
         {/* 点空白关闭：铺一层绝对定位的遮罩，卡片自身的点击不会传到这里。
             加 focusable={false}：否则电视端焦点会跑进这层看不见的遮罩里，输入框就选不中了。 */}
-        <Pressable style={StyleSheet.absoluteFill} onPress={close} focusable={false} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={requestClose} focusable={false} />
 
         <View
           style={[
@@ -152,7 +183,7 @@ export const UserManagementModal: React.FC = () => {
             <View style={{ flex: 1 }} />
 
             <Pressable
-              onPress={close}
+              onPress={requestClose}
               focusable
               style={({ focused }: { focused?: boolean }) => [
                 styles.iconButton,
@@ -279,7 +310,7 @@ export const UserManagementModal: React.FC = () => {
                       </View>
                     </View>
                   ) : (
-                    <View style={styles.footer}>
+                    <FocusWrap style={styles.footer} {...autoFocusProps}>
                       <Pressable
                         focusable
                         hasTVPreferredFocus={profiles.length === 0 && !confirmLogout}
@@ -306,7 +337,7 @@ export const UserManagementModal: React.FC = () => {
                         <LogOut color="white" size={18} />
                         <ThemedText style={styles.footerButtonText}>退出当前账户</ThemedText>
                       </Pressable>
-                    </View>
+                    </FocusWrap>
                   )}
                 </>
               )}
@@ -333,6 +364,7 @@ export const UserManagementModal: React.FC = () => {
                 登录另一个账号，成功后会自动切换并把账号保存在本机
               </ThemedText>
 
+              <FocusWrap {...autoFocusProps}>
               <TextInput
                 ref={usernameRef}
                 style={[
@@ -370,6 +402,7 @@ export const UserManagementModal: React.FC = () => {
                 onBlur={() => setFocusedField((current) => (current === "password" ? null : current))}
                 onSubmitEditing={() => void handleAdd()}
               />
+              </FocusWrap>
 
               <Pressable
                 focusable
