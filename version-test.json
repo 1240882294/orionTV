@@ -1,20 +1,20 @@
 {
-  "version": "3.0.7-test.6",
-  "releasedAt": "2026-11-26",
-  "notes": "测试通道清单。只有版本号带 -test 的安装包才会读这个文件；正式版读 version.json，两条通道互不可见。",
+  "version": "3.0.8",
+  "releasedAt": "2026-11-27",
+  "notes": "测试通道清单：电视端已转正为 3.0.8，测试包可直接覆盖升级（3013 > 3012）。",
   "channels": {
     "tv": {
-      "version": "3.0.7-test.6",
-      "versionCode": 3012,
-      "releasedAt": "2026-11-26",
+      "version": "3.0.8",
+      "versionCode": 3013,
+      "releasedAt": "2026-11-27",
       "abi": "armeabi-v7a",
-      "size": 21732358,
-      "md5": "bfabdc11b1527f011b310674dd077a43",
-      "notes": "首页换成深色环境壁纸（顶部冷光、中下部沉黑），分类改胶囊、图标玻璃化，卡片焦点描边由绿改亮白；翻页不再瞬间变黑。功能无改动。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.6/OrionTV-TV-3.0.7-test.6-armeabi-v7a.apk",
+      "size": 21587909,
+      "md5": "9cb323e3d6a26a719709d6dac85c66c2",
+      "notes": "搜索页改为字母键盘：左侧 A–Z 点字母拼拼音，右侧实时出中文候选，首字母（psjy）和全拼（poshijingying）都能命中，内置词库 6908 条；修复首次启动点右上角用户管理直接跳到添加账号；修复输入首字母没命中后无法再打中文（候选为空时右上角键盘图标可调系统输入法）。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.8/OrionTV-TV-3.0.8-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.6/OrionTV-TV-3.0.7-test.6-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.7-test.6/OrionTV-TV-3.0.7-test.6-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.8/OrionTV-TV-3.0.8-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.8/OrionTV-TV-3.0.8-armeabi-v7a.apk"
       ]
     },
     "phone": {
@@ -31,5 +31,6 @@
         "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0/OrionTV-Phone-2.1.0-arm64-v8a.apk"
       ]
     }
-  }
+  },
+  "versionCode": 3013
 }
