@@ -32,6 +32,8 @@ interface MobilePlayerControlsProps {
   setShowControls: (show: boolean) => void;
   /** 打开投屏面板；不传就不显示投屏入口（电视端不需要） */
   onOpenCast?: () => void;
+  /** 有面板盖在画面上时，先别自动隐藏控件（否则面板还开着，底下先闪一下） */
+  holdControls?: boolean;
 }
 
 const formatTime = (milliseconds: number) => {
@@ -136,6 +138,7 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
   showControls,
   setShowControls,
   onOpenCast,
+  holdControls = false,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -178,10 +181,18 @@ export const MobilePlayerControls: React.FC<MobilePlayerControlsProps> = ({
 
   // 播放中 4 秒无操作自动隐藏控件
   useEffect(() => {
-    if (!showControls || !isPlaying || anyModalOpen || screenLocked) return;
+    if (!showControls || !isPlaying || anyModalOpen || screenLocked || holdControls) return;
     const timer = setTimeout(() => setShowControls(false), 4000);
     return () => clearTimeout(timer);
-  }, [showControls, isPlaying, anyModalOpen, screenLocked, interactionTick, setShowControls]);
+  }, [
+    showControls,
+    isPlaying,
+    anyModalOpen,
+    screenLocked,
+    holdControls,
+    interactionTick,
+    setShowControls,
+  ]);
 
   // 锁屏图标：锁定 2.6 秒后自动消隐；点屏幕用 lockHintTick 重新计时
   useEffect(() => {

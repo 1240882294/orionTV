@@ -7,7 +7,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
+  BackHandler,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -100,6 +100,16 @@ export function CastPanel({ visible, onClose }: CastPanelProps) {
       scan();
     }
   }, [visible, activeDevice, devices.length, scan]);
+
+  // 面板不再是 Modal，返回键要自己接（否则按返回会直接退出播放页）
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, onClose]);
 
   const currentEpisodeIndex = usePlayerStore((state) => state.currentEpisodeIndex);
 
@@ -353,8 +363,20 @@ export function CastPanel({ visible, onClose }: CastPanelProps) {
     );
   };
 
+  /**
+   * 面板放在播放页自己的视图树里，**不用 RN 的 Modal**。
+   *
+   * Modal 在安卓上是一个独立的 Dialog window，它那层 rgba(0,0,0,0.45) 的背景
+   * 和播放页所在 window 里的 SurfaceView 分属两个窗口，跨窗口的半透明合成对
+   * SurfaceView 不生效：视频画面会被糊上一层洗白的旧帧，也就是用户点「投屏」
+   * 时看到的蒙版重影。等控件层卸载、窗口重绘一次，蒙版才跟着消失。
+   *
+   * 改成同一 window 内的绝对定位覆盖层，合成顺序正常，画面不会再被洗。
+   */
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <View style={styles.overlay} pointerEvents="box-none">
       <Pressable style={styles.backdrop} onPress={onClose} />
       <View style={[styles.sheet, { maxHeight: height * 0.72 }]}>
         <View style={styles.header}>
@@ -370,12 +392,19 @@ export function CastPanel({ visible, onClose }: CastPanelProps) {
           {activeDevice ? renderRemote() : renderDeviceList()}
         </ScrollView>
       </View>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
+  // 盖住整个播放页，且必须比控件层（zIndex 30）、倍速提示（45）、测速遮罩（60）都高
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 90,
+    elevation: 90,
+    justifyContent: "flex-end",
+  },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
   sheet: {
     backgroundColor: "#161a20",
     borderTopLeftRadius: 18,

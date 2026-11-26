@@ -729,6 +729,7 @@ export default function PlayScreen() {
           showControls={showControls}
           setShowControls={setShowControls}
           onOpenCast={() => setShowCastPanel(true)}
+          holdControls={showCastPanel}
         />
       )}
 
