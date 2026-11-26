@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { View, TextInput, StyleSheet, Alert, Keyboard, TouchableOpacity } from "react-native";
+import { View, TextInput, StyleSheet, Alert, Keyboard, TouchableOpacity, Pressable } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import VideoCard from "@/components/VideoCard";
@@ -17,6 +17,12 @@ import { getCommonResponsiveStyles } from "@/utils/ResponsiveStyles";
 import ResponsiveNavigation from "@/components/navigation/ResponsiveNavigation";
 import ResponsiveHeader from "@/components/navigation/ResponsiveHeader";
 import { DeviceUtils } from "@/utils/DeviceUtils";
+import {
+  ensureSuggestIndex,
+  rememberTitles,
+  suggestTitles,
+  SuggestEntry,
+} from "@/services/searchSuggestIndex";
 import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('SearchScreen');
@@ -26,6 +32,9 @@ export default function SearchScreen() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<SuggestEntry[]>([]);
+  // 词库是分批到位的（先本地历史，再网络榜单），这个版本号用来触发重新匹配
+  const [suggestVersion, setSuggestVersion] = useState(0);
   const textInputRef = useRef<TextInput>(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const { showModal: showRemoteModal, lastMessage, targetPage, clearMessage } = useRemoteControlStore();
@@ -56,6 +65,43 @@ export default function SearchScreen() {
   //   return () => clearTimeout(timer);
   // }, []);
 
+  /**
+   * 首字母联想词库预热：本地搜索历史 + 收藏 + 播放记录，再叠加豆瓣榜单。
+   * 词库只读本地内存，匹配不发网络请求，输入过程中不会有卡顿。
+   */
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      if (!cancelled) setSuggestVersion((v) => v + 1);
+    };
+    ensureSuggestIndex()
+      .then(refresh)
+      .catch(() => {
+        /* 词库拉取失败不影响搜索本身 */
+      });
+    // 本地词库很快就好，网络榜单慢一些：分两次补刷，别让候选一直空着
+    const timers = [400, 2000].map((delay) => setTimeout(refresh, delay));
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+
+  /**
+   * 关键词变化就重算候选。
+   *
+   * 这里刻意只读不写：不 setKeyword、不动焦点、不阻塞输入。
+   * 之前那版一边过滤一边回写输入框，联想为空时连中文都敲不进去。
+   */
+  useEffect(() => {
+    const q = keyword.trim();
+    if (!q) {
+      setSuggestions([]);
+      return;
+    }
+    setSuggestions(suggestTitles(q, deviceType === "tv" ? 6 : 4));
+  }, [keyword, suggestVersion, deviceType]);
+
   const handleSearch = async (searchText?: string) => {
     const term = typeof searchText === "string" ? searchText : keyword;
     if (!term.trim()) {
@@ -69,6 +115,11 @@ export default function SearchScreen() {
       const response = await api.searchVideos(term);
       if (response.results.length > 0) {
         setResults(response.results);
+        // 搜到的标题回填词库，下次打首字母就能联想到
+        rememberTitles(
+          response.results.slice(0, 12).map((item) => item.title),
+          1
+        );
       } else {
         setError("没有找到相关内容");
       }
@@ -81,6 +132,14 @@ export default function SearchScreen() {
   };
 
   const onSearchPress = () => handleSearch();
+
+  /** 点联想词：填回输入框、收起候选、直接搜 */
+  const handlePickSuggestion = (title: string) => {
+    setKeyword(title);
+    setSuggestions([]);
+    rememberTitles([title], 2);
+    void handleSearch(title);
+  };
 
   const handleQrPress = () => {
     if (!remoteInputEnabled) {
@@ -143,6 +202,37 @@ export default function SearchScreen() {
           </StyledButton>
         )}
       </View>
+
+      {/* 首字母联想：只是候选，不抢输入焦点，也不改用户已经敲进去的内容 */}
+      {suggestions.length > 0 && (
+        <View style={dynamicStyles.suggestPanel}>
+          <ThemedText style={dynamicStyles.suggestTitle}>
+            猜你想搜
+          </ThemedText>
+          {suggestions.map((item) => (
+            <Pressable
+              key={item.title}
+              focusable
+              onPress={() => handlePickSuggestion(item.title)}
+              style={({ focused }: { focused?: boolean }) => [
+                dynamicStyles.suggestRow,
+                focused && dynamicStyles.suggestRowFocused,
+              ]}
+            >
+              <Search size={deviceType === 'mobile' ? 14 : 18} color="#8b93a1" />
+              <ThemedText style={dynamicStyles.suggestText} numberOfLines={1}>
+                {item.title}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      {keyword.trim().length > 0 && suggestions.length === 0 && deviceType !== 'mobile' && (
+        <ThemedText style={dynamicStyles.suggestEmpty}>
+          没匹配到剧名，可以直接输入中文，或点右上角二维码用手机输入
+        </ThemedText>
+      )}
 
       {loading ? (
         <VideoLoadingAnimation showProgressBar={false} />
@@ -232,6 +322,49 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
       color: "red",
       fontSize: isMobile ? 14 : 16,
       textAlign: "center",
+    },
+    // 联想候选：和搜索框同宽，纵向排列，遥控器可按方向键进入
+    suggestPanel: {
+      marginHorizontal: spacing,
+      marginBottom: spacing,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      backgroundColor: "rgba(255,255,255,0.05)",
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.08)",
+    },
+    suggestTitle: {
+      color: "rgba(255,255,255,0.45)",
+      fontSize: isMobile ? 11 : 13,
+      marginBottom: 4,
+      marginLeft: 4,
+    },
+    suggestRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      height: isMobile ? 38 : 46,
+      paddingHorizontal: 8,
+      borderRadius: 8,
+      borderWidth: 2,
+      borderColor: "transparent",
+    },
+    suggestRowFocused: {
+      borderColor: "white",
+      backgroundColor: "rgba(255,255,255,0.12)",
+    },
+    suggestText: {
+      color: "#e8eaed",
+      fontSize: isMobile ? 15 : 18,
+      flexShrink: 1,
+    },
+    suggestEmpty: {
+      marginHorizontal: spacing,
+      marginBottom: spacing,
+      marginTop: -spacing / 2,
+      color: "rgba(255,255,255,0.4)",
+      fontSize: isMobile ? 12 : 14,
     },
   });
 };

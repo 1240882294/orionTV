@@ -8,7 +8,6 @@ import {
   TextInput,
   useWindowDimensions,
   View,
-  TVFocusGuideView,
 } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +16,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useUserStore } from "@/stores/userStore";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { Colors } from "@/constants/Colors";
+import Toast from "react-native-toast-message";
 
 /**
  * 用户管理面板（手机端设置页 / 电视端首页右上角共用）。
@@ -65,15 +65,25 @@ export const UserManagementModal: React.FC = () => {
   const tvPreferredFocusProps: any = isTV ? { hasTVPreferredFocus: true } : {};
 
   /**
-   * 电视端底部按钮的焦点兜底。
+   * 电视端把焦点拉到「添加账号」。
    *
-   * Modal 是独立的 Dialog window，内容挂载时窗口往往还没 ready，
-   * 子元素上的 `hasTVPreferredFocus` 会被丢掉 —— 面板明明弹出来了，
-   * 遥控器却按哪儿都没反应，表现为「点了用户管理，进不去添加账号」。
-   * `TVFocusGuideView autoFocus` 会在窗口就绪后把焦点交给第一个可聚焦子元素。
+   * 之前试过 `TVFocusGuideView autoFocus`：那是 tvOS 的 prop，Android TV 上不生效，
+   * 面板弹出来焦点其实还留在下层的设置页，用户按确认什么都没发生 ——
+   * 这就是「点添加账号没反应」的真正原因。
+   *
+   * `hasTVPreferredFocus` 是原生 prop，setter 里会直接 requestFocus()。
+   * Modal 的 Dialog 窗口刚创建时 requestFocus 会被丢掉，所以这里延时重试几次。
    */
-  const FocusWrap: any = isTV ? TVFocusGuideView : View;
-  const autoFocusProps: any = isTV ? { autoFocus: true } : {};
+  const addButtonRef = useRef<View>(null);
+  const focusAddButton = useCallback(() => {
+    const node = addButtonRef.current as any;
+    if (!node?.setNativeProps) return;
+    // 先置 false 再置 true：值真的变化，原生才会重新走一遍 requestFocus
+    node.setNativeProps({ hasTVPreferredFocus: false });
+    requestAnimationFrame(() => {
+      (addButtonRef.current as any)?.setNativeProps?.({ hasTVPreferredFocus: true });
+    });
+  }, []);
 
   // 每次打开都回到列表首页，避免上次停在「添加账号」表单；
   // 但没有账号可列时直接进添加表单 —— 否则用户打开面板只看到一个空列表，
@@ -105,6 +115,17 @@ export const UserManagementModal: React.FC = () => {
     }, 320);
     return () => clearTimeout(timer);
   }, [visible, isTV, view]);
+
+  /**
+   * 列表页的初始焦点固定在「添加账号」上。
+   * 账号行不再抢初始焦点：它的 onPress 在「当前账号」上是空操作，
+   * 焦点停在那一行时按确认看起来就是「点了没反应」。
+   */
+  useEffect(() => {
+    if (!visible || !isTV || view !== "list" || localMode) return;
+    const timers = [140, 480, 1000].map((delay) => setTimeout(focusAddButton, delay));
+    return () => timers.forEach(clearTimeout);
+  }, [visible, isTV, view, localMode, focusAddButton]);
 
   const activeProfile = profiles.find((item) => item.id === activeId);
 
@@ -221,15 +242,18 @@ export const UserManagementModal: React.FC = () => {
                       profiles
                         .slice()
                         .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
-                        .map((profile, index) => {
+                        .map((profile) => {
                           const isActive = profile.id === activeId;
                           return (
                             <Pressable
                               key={profile.id}
                               focusable
-                              hasTVPreferredFocus={!confirmLogout && index === 0}
                               onPress={() => {
-                                if (isActive) return;
+                                if (isActive) {
+                                  // 焦点停在这一行时按确认，什么都不发生很像「按钮坏了」
+                                  Toast.show({ type: "info", text1: "当前正在使用该账号" });
+                                  return;
+                                }
                                 void handleSwitch(profile.id);
                               }}
                               style={({ pressed, focused }: { pressed: boolean; focused?: boolean }) => [
@@ -310,10 +334,11 @@ export const UserManagementModal: React.FC = () => {
                       </View>
                     </View>
                   ) : (
-                    <FocusWrap style={styles.footer} {...autoFocusProps}>
+                    <View style={styles.footer}>
                       <Pressable
+                        ref={addButtonRef}
                         focusable
-                        hasTVPreferredFocus={profiles.length === 0 && !confirmLogout}
+                        hasTVPreferredFocus={isTV}
                         onPress={() => setView("add")}
                         style={({ focused }: { focused?: boolean }) => [
                           styles.footerButton,
@@ -337,7 +362,7 @@ export const UserManagementModal: React.FC = () => {
                         <LogOut color="white" size={18} />
                         <ThemedText style={styles.footerButtonText}>退出当前账户</ThemedText>
                       </Pressable>
-                    </FocusWrap>
+                    </View>
                   )}
                 </>
               )}
@@ -364,7 +389,6 @@ export const UserManagementModal: React.FC = () => {
                 登录另一个账号，成功后会自动切换并把账号保存在本机
               </ThemedText>
 
-              <FocusWrap {...autoFocusProps}>
               <TextInput
                 ref={usernameRef}
                 style={[
@@ -402,7 +426,6 @@ export const UserManagementModal: React.FC = () => {
                 onBlur={() => setFocusedField((current) => (current === "password" ? null : current))}
                 onSubmitEditing={() => void handleAdd()}
               />
-              </FocusWrap>
 
               <Pressable
                 focusable

@@ -115,9 +115,13 @@ async function fetchDoubanSeeds(): Promise<string[]> {
     { type: "tv", tag: "热门" },
     { type: "tv", tag: "国产剧" },
     { type: "tv", tag: "综艺" },
+    { type: "tv", tag: "喜剧" },
+    { type: "tv", tag: "悬疑" },
+    { type: "tv", tag: "爱情" },
     { type: "movie", tag: "热门" },
     { type: "movie", tag: "经典" },
     { type: "movie", tag: "top250" },
+    { type: "movie", tag: "动作" },
   ];
 
   const results = await Promise.allSettled(
