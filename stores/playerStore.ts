@@ -8,6 +8,18 @@ import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('PlayerStore');
 
+/**
+ * 切源后的记录保护期。
+ *
+ * 切线路时十有八九是「这条卡了，换一条试试」，可能几秒钟就退出去再换。
+ * 如果这时候把记录覆盖成新线路的「第 1 集、0 秒」，用户原来看到哪儿就没了 ——
+ * 手机端反馈的「切完线路记录丢了」就是这么来的。
+ *
+ * 规则：切源后累计播放不足 30 秒，一律不写记录，旧线路那条原封不动。
+ * 播满 30 秒说明这条线路确实在用，才允许覆盖（覆盖时会顺手清掉旧线路那条）。
+ */
+const SWITCH_RECORD_GUARD_MS = 30 * 1000;
+
 interface Episode {
   url: string;
   title: string;
@@ -69,6 +81,14 @@ interface PlayerState {
   reset: () => void;
   _seekTimeout?: NodeJS.Timeout;
   _isRecordSaveThrottled: boolean;
+  /** 上一次 loadVideo 用的线路，用来判断这次调用是「首次播放」还是「换线路」 */
+  _loadedSource: string | null;
+  /** 切源保护期是否还生效（播满 30 秒自动解除） */
+  _switchGuard: boolean;
+  /** 保护期内累计的实际播放时长，只有 isPlaying 时才累加 */
+  _switchPlayedMs: number;
+  /** 上一次状态回调的时间戳，用来算播放时长增量 */
+  _lastStatusAt: number;
   // Internal helper
   _savePlayRecord: (updates?: Partial<PlayRecord>, options?: { immediate?: boolean }) => void;
   handleVideoError: (errorType: 'ssl' | 'network' | 'other', failedUrl: string) => Promise<void>;
@@ -98,13 +118,31 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
   outroStartTime: undefined,
   _seekTimeout: undefined,
   _isRecordSaveThrottled: false,
+  _loadedSource: null,
+  _switchGuard: false,
+  _switchPlayedMs: 0,
+  _lastStatusAt: 0,
 
   setVideoRef: (ref) => set({ videoRef: ref }),
 
   loadVideo: async ({ source, id, episodeIndex, position, title }) => {
     const perfStart = performance.now();
     logger.info(`[PERF] PlayerStore.loadVideo START - source: ${source}, id: ${id}, title: ${title}`);
-    
+
+    // 判断这次是不是「换线路」：上一次加载用的线路和这次不同，就进保护期。
+    // 首次进入播放页 _loadedSource 为 null，不算切源，记录照常写。
+    const prevLoadedSource = get()._loadedSource;
+    const isSourceSwitch = !!prevLoadedSource && prevLoadedSource !== source;
+    set({
+      _loadedSource: source,
+      _switchGuard: isSourceSwitch,
+      _switchPlayedMs: 0,
+      _lastStatusAt: 0,
+    });
+    if (isSourceSwitch) {
+      logger.info(`[RECORD] Source switched ${prevLoadedSource} -> ${source}, play record protected for 30s`);
+    }
+
     let detail = useDetailStore.getState().detail;
     let episodes: string[] = [];
     
@@ -213,10 +251,21 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
       const storageStart = performance.now();
       logger.info(`[PERF] Storage operations START`);
       
-      const playRecord = await PlayRecordManager.get(detail!.source, detail!.id.toString());
+      let playRecord = await PlayRecordManager.get(detail!.source, detail!.id.toString());
       const storagePlayRecordEnd = performance.now();
       logger.info(`[PERF] PlayRecordManager.get took ${(storagePlayRecordEnd - storageStart).toFixed(2)}ms`);
-      
+
+      // 新线路上没有自己的记录 —— 正常，因为记录是按「线路 + id」存的。
+      // 这时用同一部剧在旧线路下的记录兜底，否则切完线路进度和集数全归零。
+      if (!playRecord && detail!.title) {
+        playRecord = await PlayRecordManager.findByTitle(detail!.title, detail!.year);
+        if (playRecord) {
+          logger.info(
+            `[RECORD] Fallback to another source's record: ep${playRecord.index}, ${playRecord.play_time}s (${playRecord.source_name})`
+          );
+        }
+      }
+
       const playerSettings = await PlayerSettingsManager.get(detail!.source, detail!.id.toString());
       const storageEnd = performance.now();
       logger.info(`[PERF] PlayerSettingsManager.get took ${(storageEnd - storagePlayRecordEnd).toFixed(2)}ms`);
@@ -224,6 +273,15 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
       
       const initialPositionFromRecord = playRecord?.play_time ? playRecord.play_time * 1000 : 0;
       const savedPlaybackRate = playerSettings?.playbackRate || 1.0;
+
+      // episodeIndex < 0 表示调用方没指定（例如切线路时还没播起来、store 里是初始值 -1）。
+      // 这种情况必须用记录里的集数兜底，否则选集索引是 -1，取不到播放地址，
+      // 界面就永远停在加载中，用户只能手动选集才能恢复。
+      const recordEpisodeIndex = playRecord?.index ? Math.max(0, playRecord.index - 1) : 0;
+      const resolvedEpisodeIndex = episodeIndex >= 0 ? episodeIndex : recordEpisodeIndex;
+      if (episodeIndex < 0) {
+        logger.info(`[RECORD] Episode index missing (-1), fallback to record: ep${resolvedEpisodeIndex + 1}`);
+      }
       
       const episodesMappingStart = performance.now();
       const mappedEpisodes = episodes.map((ep, index) => ({
@@ -235,7 +293,7 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
       
       set({
         isLoading: false,
-        currentEpisodeIndex: episodeIndex,
+        currentEpisodeIndex: resolvedEpisodeIndex,
         initialPosition: position || initialPositionFromRecord,
         playbackRate: savedPlaybackRate,
         episodes: mappedEpisodes,
@@ -370,6 +428,25 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
 
   _savePlayRecord: (updates = {}, options = {}) => {
     const { immediate = false } = options;
+
+    // 切源保护期：新线路还没播满 30 秒，这一条记录就不该动。
+    // immediate 的写入（片头/片尾时间）跟进度无关，放行。
+    if (!immediate) {
+      const guard = get();
+      if (guard._switchGuard) {
+        if (guard._switchPlayedMs < SWITCH_RECORD_GUARD_MS) {
+          // 状态回调约 500ms 一次，这里用 debug 级别，别刷屏
+          logger.debug(
+            `[RECORD] Skip save - switched source but only played ${Math.round(guard._switchPlayedMs / 1000)}s (<30s)`
+          );
+          return;
+        }
+        // 播够了，解除保护，之后按正常节奏写
+        set({ _switchGuard: false });
+        logger.info(`[RECORD] Switch guard released, record will be overwritten`);
+      }
+    }
+
     if (!immediate) {
       if (get()._isRecordSaveThrottled) {
         return;
@@ -414,6 +491,22 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
     const { currentEpisodeIndex, episodes, outroStartTime, playEpisode } = get();
     const detail = useDetailStore.getState().detail;
 
+    // 累计「真正在播」的时长，供切源保护期判断。
+    // 只认 isPlaying：缓冲中、暂停、卡死都不算 —— 否则切到一条卡死的线路上
+    // 干等 30 秒也会被当成「这条在用」，保护就失效了。
+    const guardState = get();
+    let guardPatch: { _switchPlayedMs?: number; _lastStatusAt: number } = { _lastStatusAt: 0 };
+    if (newStatus.isPlaying) {
+      const now = Date.now();
+      const last = guardState._lastStatusAt || now;
+      // 状态回调约 500ms 一次；单次增量封顶 2 秒，防止应用切后台后一次性加太多
+      const delta = Math.min(Math.max(now - last, 0), 2000);
+      guardPatch = {
+        _lastStatusAt: now,
+        ...(guardState._switchGuard ? { _switchPlayedMs: guardState._switchPlayedMs + delta } : {}),
+      };
+    }
+
     if (
       outroStartTime &&
       newStatus.durationMillis &&
@@ -443,7 +536,7 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
     }
 
     const progressPosition = newStatus.durationMillis ? newStatus.positionMillis / newStatus.durationMillis : 0;
-    set({ status: newStatus, progressPosition });
+    set({ status: newStatus, progressPosition, ...guardPatch });
   },
 
   setLoading: (loading) => set({ isLoading: loading }),
@@ -579,6 +672,11 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
       progressPosition: 0,
       introEndTime: undefined,
       outroStartTime: undefined,
+      // 离开播放页即重置会话：下次进来算「首次播放」，记录照常写
+      _loadedSource: null,
+      _switchGuard: false,
+      _switchPlayedMs: 0,
+      _lastStatusAt: 0,
     });
   },
 
@@ -629,9 +727,18 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
           title: `第 ${index + 1} 集`,
         }));
         
+        // 出错自动换源也算切线路：从当前进度接着播，并进记录保护期
+        const lastStatus = get().status;
+        const currentPosition = lastStatus?.isLoaded ? lastStatus.positionMillis : undefined;
+
         set({
           episodes: mappedEpisodes,
           isLoading: false, // 让Video组件重新渲染
+          initialPosition: currentPosition ?? get().initialPosition,
+          _loadedSource: fallbackSource.source,
+          _switchGuard: true,
+          _switchPlayedMs: 0,
+          _lastStatusAt: 0,
         });
         
         const perfEnd = performance.now();

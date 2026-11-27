@@ -334,6 +334,39 @@ export class PlayRecordManager {
     return result;
   }
 
+  /**
+   * 按标题找同一部影片挂在其他线路下的最近一条记录（只读，不改数据）。
+   *
+   * 播放记录以「线路 + id」为键存，换源后新线路必然查不到自己的记录，
+   * 于是「看到第几集、看到第几分钟」全丢，只能手动选集 —— 这就是
+   * 切线路后进度归零的根因。这里做跨源兜底：新线路没记录时拿旧线路的顶上。
+   *
+   * 等新线路真正播满保护期、写入记录时，save() 里的去重会把旧记录清掉，
+   * 记录自然迁移到新线路，不会留下两条。
+   */
+  static async findByTitle(title: string, year?: string): Promise<PlayRecord | null> {
+    const targetTitle = normalizeRecordTitle(title);
+    if (!targetTitle) return null;
+
+    try {
+      const records = await this.getAll();
+      // keepKey 传一个不存在的 key：只按标题/年份筛，不排除任何一条
+      const keys = pickStalePlayRecordKeys(records, "__none__", title, year);
+      if (keys.length === 0) return null;
+
+      let best: PlayRecord | null = null;
+      for (const key of keys) {
+        const record = records[key];
+        if (!record) continue;
+        if (!best || (record.save_time || 0) > (best.save_time || 0)) best = record;
+      }
+      return best;
+    } catch (error) {
+      logger.debug("Failed to find play record by title:", error);
+      return null;
+    }
+  }
+
   static async remove(source: string, id: string): Promise<void> {
     const key = generateKey(source, id);
     await PlayerSettingsManager.remove(source, id); // Always remove local settings

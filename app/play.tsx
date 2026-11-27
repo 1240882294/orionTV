@@ -56,6 +56,19 @@ const PREPARE_TIMEOUT_MS = 8000;
 /** 用户选的线路已经够快时提前结束测速 */
 const GOOD_ENOUGH_BPS = 1024 * 1024;
 
+/**
+ * 首帧看门狗。
+ *
+ * 测速只读了 m3u8 头部和一小段切片，能测出速度不代表能真的播 ——
+ * 选出来的「最优线路」有可能一直缓冲、或者干脆是死链。之前的处理是干等，
+ * 界面永远停在「正在加载视频…」。现在 15 秒没出画面就换一条重来。
+ */
+const FIRST_FRAME_TIMEOUT_MS = 15000;
+/** 最多自动重选几次，防止无限换源 */
+const MAX_AUTO_RECOVER = 2;
+/** 剧集数据初始化的总闸：单条 m3u8 探测有 4 秒超时，这里兜整体 */
+const INIT_TIMEOUT_MS = 12000;
+
 // 优化的加载动画组件
 const LoadingContainer = memo(
   ({ style, currentEpisode }: { style: any; currentEpisode: { url: string; title: string } | undefined }) => {
@@ -134,6 +147,12 @@ export default function PlayScreen() {
   const [prepareDone, setPrepareDone] = useState(0);
   const [prepareTotal, setPrepareTotal] = useState(0);
   const [prepareName, setPrepareName] = useState("");
+
+  // 首帧看门狗：出不了画面就重选线路
+  const [recoverNonce, setRecoverNonce] = useState(0);
+  const recoverCountRef = useRef(0);
+  /** 上一次判定为「无响应」的线路，重选时排除掉，别又选中它 */
+  const excludedSourceRef = useRef<string | null>(null);
 
   // 去广告：先清洗播放列表，再交给播放器；失败/本地列表播不了会自动回退原始地址
   const adFree = useAdFreePlayback(currentEpisode?.url);
@@ -362,9 +381,10 @@ export default function PlayScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    const isRecover = recoverCountRef.current > 0;
     setVideoRef(videoRef);
     setPreparing(true);
-    setPrepareLabel("正在准备播放…");
+    setPrepareLabel(isRecover ? "线路无响应，正在重新选择…" : "正在准备播放…");
     setPrepareDone(0);
     setPrepareTotal(0);
     setPrepareName("");
@@ -381,13 +401,31 @@ export default function PlayScreen() {
       const needInit = !state.detail || state.detail.title !== title || state.searchResults.length === 0;
       if (needInit) {
         setPrepareLabel("正在获取线路…");
-        await state.init(title, source, id);
+        // 初始化里要逐条探测分辨率，单条已有 4 秒超时，这里再加一道总闸：
+        // 最多等 12 秒，拿不到就用手上已有的数据（大概率 searchResults 已经填好了）往下走。
+        const finished = await Promise.race([
+          state.init(title, source, id).then(() => true),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), INIT_TIMEOUT_MS)),
+        ]);
         if (cancelled) return;
+        if (!finished) {
+          logger.warn("[PREP] Detail init timed out, continue with whatever we have");
+        }
         state = useDetailStore.getState();
       }
 
-      const candidates =
+      // 重选线路时把上次判定「出不了画面」的那条排除掉，别又挑回它
+      const excluded = excludedSourceRef.current;
+      const allCandidates =
         state.searchResults.length > 0 ? state.searchResults : state.detail ? [state.detail] : [];
+      const candidates =
+        excluded && allCandidates.length > 1
+          ? allCandidates.filter((item) => item.source !== excluded)
+          : allCandidates;
+      if (excluded && candidates.length < allCandidates.length) {
+        logger.info(`[PREP] Excluding unresponsive source: ${excluded}`);
+      }
+
       const preferredSource = sourceStr || state.detail?.source || source;
 
       if (candidates.length === 0) {
@@ -398,7 +436,8 @@ export default function PlayScreen() {
       }
 
       // 2. 测速挑最优线路：只在本次打开视频时测一次，结果写入缓存供其他界面复用
-      const cached = getCachedSpeeds(title);
+      //    重选时不信缓存 —— 上次就是照它选出来的那条，结果播不出来
+      const cached = excluded ? undefined : getCachedSpeeds(title);
       if (cached) {
         logger.info("[PREP] Reuse cached speed results");
       } else {
@@ -493,7 +532,47 @@ export default function PlayScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prepareKey]);
+  }, [prepareKey, recoverNonce]);
+
+  /**
+   * 首帧看门狗：准备流程走完、视频也交出去了，但 15 秒还没出画面 ——
+   * 说明这条线路实际不通（能测速≠能播）。排除它，重新走一遍选线路。
+   *
+   * 判定标准是「有画面」而不是「isPlaying」：卡在缓冲时 isPlaying 也可能是 true，
+   * positionMillis 不动才是真的没播起来。
+   */
+  useEffect(() => {
+    if (preparing) return;
+    if (recoverCountRef.current >= MAX_AUTO_RECOVER) return;
+
+    let sawFrame = false;
+    const unsubscribe = usePlayerStore.subscribe((state) => {
+      const s = state.status;
+      if (s?.isLoaded && s.positionMillis > 0) sawFrame = true;
+    });
+
+    const timer = setTimeout(() => {
+      if (sawFrame) return;
+      const currentSource = useDetailStore.getState().detail?.source ?? null;
+      excludedSourceRef.current = currentSource;
+      recoverCountRef.current += 1;
+      logger.warn(
+        `[WATCHDOG] No frame in ${FIRST_FRAME_TIMEOUT_MS / 1000}s, re-select source ` +
+          `(round ${recoverCountRef.current}, excluding ${currentSource})`
+      );
+      Toast.show({
+        type: "info",
+        text1: "线路无响应，正在自动切换",
+        visibilityTime: 2500,
+      });
+      setRecoverNonce((n) => n + 1);
+    }, FIRST_FRAME_TIMEOUT_MS);
+
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [preparing, prepareKey, recoverNonce]);
 
   // 优化的屏幕点击处理
   const onScreenPress = useCallback(() => {
