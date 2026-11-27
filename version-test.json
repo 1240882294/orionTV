@@ -1,7 +1,7 @@
 {
-  "version": "3.0.9",
+  "version": "2.1.2-test.1",
   "releasedAt": "2026-11-27",
-  "notes": "测试通道已转正：电视端 3.0.9、手机端 2.1.1 均为正式版，测试包检查更新会直接拿到正式包。装上正式版后改读 version.json，后续测试版不再推送。",
+  "notes": "手机端 2.1.2-test.1：恢复设置页被误删的「用户管理」入口。电视端测试通道仍指向 3.0.9 正式版。",
   "channels": {
     "tv": {
       "version": "3.0.9",
@@ -10,7 +10,7 @@
       "abi": "armeabi-v7a",
       "size": 21590658,
       "md5": "d5d1082af6f084ee37d11af9cda0f0c9",
-      "notes": "3.0.9-test.1 转正。播放修复：分辨率探测 4 秒超时、初始化 12 秒总闸、切线路沿用原进度与集数、切源不足 30 秒不覆盖记录、15 秒无画面自动换线路。",
+      "notes": "电视端已转正，本版即 3.0.9 正式版。",
       "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.9/OrionTV-TV-3.0.9-armeabi-v7a.apk",
       "mirrors": [
         "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.9/OrionTV-TV-3.0.9-armeabi-v7a.apk",
@@ -18,19 +18,19 @@
       ]
     },
     "phone": {
-      "version": "2.1.1",
-      "versionCode": 2110,
+      "version": "2.1.2-test.1",
+      "versionCode": 2111,
       "releasedAt": "2026-11-27",
       "abi": "arm64-v8a",
-      "size": 26795608,
-      "md5": "4c4d0d7704ef71a1b5a400aa8b74bb3f",
-      "notes": "2.1.1-test.2 转正。播放修复同上，并补齐 4 个 arm64 原生库（test.1 曾因缺库闪退）。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.1/OrionTV-Phone-2.1.1-arm64-v8a.apk",
+      "size": 26795123,
+      "md5": "ed2e7566c38d4dbe6623bfacca46fab6",
+      "notes": "恢复设置页的「用户管理」入口：2.1.1 里该入口被误删，手机端无法切换账号、添加账号、退出登录。电视端不受影响（首页右上角另有入口），本次只改手机端。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2-test.1/OrionTV-Phone-2.1.2-test.1-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.1/OrionTV-Phone-2.1.1-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.1/OrionTV-Phone-2.1.1-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2-test.1/OrionTV-Phone-2.1.2-test.1-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2-test.1/OrionTV-Phone-2.1.2-test.1-arm64-v8a.apk"
       ]
     }
   },
-  "versionCode": 3015
+  "versionCode": 2111
 }

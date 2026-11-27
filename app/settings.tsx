@@ -14,6 +14,7 @@ import { APIConfigSection } from "@/components/settings/APIConfigSection";
 import { RemoteInputSection } from "@/components/settings/RemoteInputSection";
 import { AdBlockSection } from "@/components/settings/AdBlockSection";
 import { UpdateSection } from "@/components/settings/UpdateSection";
+import { UserAccountSection } from "@/components/settings/UserAccountSection";
 // import { VideoSourceSection } from "@/components/settings/VideoSourceSection";
 import Toast from "react-native-toast-message";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
@@ -144,6 +145,19 @@ export default function SettingsScreen() {
   //   },
   // ].filter(Boolean);
   const rawSections = [
+    // 手机端首页没有顶部导航（用底部 Tab），用户管理的唯一入口就是这里；
+    // 电视端首页右上角已有入口，不重复放
+    deviceType === "mobile" && {
+      component: (
+        <UserAccountSection
+          onFocus={() => {
+            setCurrentFocusIndex(0);
+            setCurrentSection("user");
+          }}
+        />
+      ),
+      key: "user",
+    },
     deviceType !== "mobile" && {
       component: (
         <RemoteInputSection
