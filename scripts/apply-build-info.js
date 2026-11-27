@@ -16,8 +16,8 @@ const path = require("path");
 
 // 与 src/app.config.js 的 CHANNEL_META 保持一致
 const DEFAULT_META = {
-  phone: { version: "2.0.4", versionCode: 2004 },
-  tv: { version: "3.0.5-test.2", versionCode: 3005 },
+  phone: { version: "2.1.1", versionCode: 2110 },
+  tv: { version: "3.0.9", versionCode: 3015 },
 };
 
 const channel = process.env.ORION_CHANNEL === "tv" ? "tv" : "phone";
