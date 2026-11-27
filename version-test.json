@@ -1,36 +1,36 @@
 {
-  "version": "3.0.8",
+  "version": "2.1.1-test.1",
   "releasedAt": "2026-11-27",
-  "notes": "测试通道清单：电视端已转正为 3.0.8，测试包可直接覆盖升级（3013 > 3012）。",
+  "notes": "测试通道清单：手机端 2.1.1-test.1、电视端 3.0.9-test.1，修播放卡在「正在获取」、切线路丢进度、坏线路不自动换。",
   "channels": {
     "tv": {
-      "version": "3.0.8",
-      "versionCode": 3013,
+      "version": "3.0.9-test.1",
+      "versionCode": 3014,
       "releasedAt": "2026-11-27",
       "abi": "armeabi-v7a",
-      "size": 21587909,
-      "md5": "9cb323e3d6a26a719709d6dac85c66c2",
-      "notes": "搜索页改为字母键盘：左侧 A–Z 点字母拼拼音，右侧实时出中文候选，首字母（psjy）和全拼（poshijingying）都能命中，内置词库 6908 条；修复首次启动点右上角用户管理直接跳到添加账号；修复输入首字母没命中后无法再打中文（候选为空时右上角键盘图标可调系统输入法）。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.8/OrionTV-TV-3.0.8-armeabi-v7a.apk",
+      "size": 21589843,
+      "md5": "672afed33cbb99703a71f9ede2ef89ec",
+      "notes": "修复卡在「正在获取」：分辨率探测加了 4 秒超时（原来没超时，一条线路挂住就永久等），剧集初始化加 12 秒总闸；切线路后自动沿用原进度和原集数，不用手动选集；切源后播放不足 30 秒不覆盖原记录；15 秒不出画面自动换线路（最多 2 次）。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.9-test.1/OrionTV-TV-3.0.9-test.1-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.8/OrionTV-TV-3.0.8-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.8/OrionTV-TV-3.0.8-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.9-test.1/OrionTV-TV-3.0.9-test.1-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.9-test.1/OrionTV-TV-3.0.9-test.1-armeabi-v7a.apk"
       ]
     },
     "phone": {
-      "version": "2.1.0",
-      "versionCode": 2107,
-      "releasedAt": "2026-11-26",
+      "version": "2.1.1-test.1",
+      "versionCode": 2108,
+      "releasedAt": "2026-11-27",
       "abi": "arm64-v8a",
-      "size": 26637642,
-      "md5": "b6288e9dd7598026d7780bce513e17ae",
-      "notes": "新增屏幕锁、长按右侧屏幕 3 倍速、全屏底部改为上一集/下一集；全屏画面完整不裁剪，控件层不再压暗整屏，锁屏时的画面蒙版残留已消除。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0/OrionTV-Phone-2.1.0-arm64-v8a.apk",
+      "size": 24631623,
+      "md5": "e53e8697965bcab69b207d1fa3d5974e",
+      "notes": "修复卡在「正在获取」：分辨率探测加了 4 秒超时（原来没超时，一条线路挂住就永久等），剧集初始化加 12 秒总闸；切线路后自动沿用原进度和原集数，不用手动选集；切源后播放不足 30 秒不覆盖原记录；15 秒不出画面自动换线路（最多 2 次）。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.1-test.1/OrionTV-Phone-2.1.1-test.1-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0/OrionTV-Phone-2.1.0-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0/OrionTV-Phone-2.1.0-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.1-test.1/OrionTV-Phone-2.1.1-test.1-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.1-test.1/OrionTV-Phone-2.1.1-test.1-arm64-v8a.apk"
       ]
     }
   },
-  "versionCode": 3013
+  "versionCode": 2108
 }
