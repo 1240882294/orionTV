@@ -1,7 +1,7 @@
 {
-  "version": "2.1.2-test.1",
+  "version": "2.1.2",
   "releasedAt": "2026-11-27",
-  "notes": "手机端 2.1.2-test.1：恢复设置页被误删的「用户管理」入口。电视端测试通道仍指向 3.0.9 正式版。",
+  "notes": "测试通道清单：手机端测试版已转正为 2.1.2，两端均指向正式包，装了测试包的机器检查更新即可转正。",
   "channels": {
     "tv": {
       "version": "3.0.9",
@@ -18,19 +18,19 @@
       ]
     },
     "phone": {
-      "version": "2.1.2-test.1",
-      "versionCode": 2111,
+      "version": "2.1.2",
+      "versionCode": 2112,
       "releasedAt": "2026-11-27",
       "abi": "arm64-v8a",
-      "size": 26795123,
-      "md5": "ed2e7566c38d4dbe6623bfacca46fab6",
-      "notes": "恢复设置页的「用户管理」入口：2.1.1 里该入口被误删，手机端无法切换账号、添加账号、退出登录。电视端不受影响（首页右上角另有入口），本次只改手机端。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2-test.1/OrionTV-Phone-2.1.2-test.1-arm64-v8a.apk",
+      "size": 26795952,
+      "md5": "7a0d7bd22f9d4b3a2ee3e75e4694809f",
+      "notes": "手机端 2.1.2-test.1 已转正为 2.1.2：恢复设置页的「用户管理」入口。测试通道指向同一个正式包，装上后不再接收后续测试版。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2/OrionTV-Phone-2.1.2-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2-test.1/OrionTV-Phone-2.1.2-test.1-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2-test.1/OrionTV-Phone-2.1.2-test.1-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2/OrionTV-Phone-2.1.2-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2/OrionTV-Phone-2.1.2-arm64-v8a.apk"
       ]
     }
   },
-  "versionCode": 2111
+  "versionCode": 2112
 }

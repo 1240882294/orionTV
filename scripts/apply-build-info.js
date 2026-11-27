@@ -16,7 +16,7 @@ const path = require("path");
 
 // 与 src/app.config.js 的 CHANNEL_META 保持一致
 const DEFAULT_META = {
-  phone: { version: "2.1.2-test.1", versionCode: 2111 },
+  phone: { version: "2.1.2", versionCode: 2112 },
   tv: { version: "3.0.9", versionCode: 3015 },
 };
 

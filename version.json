@@ -2,7 +2,7 @@
   "version": "3.0.9",
   "versionCode": 3015,
   "releasedAt": "2026-11-27",
-  "notes": "正式通道清单：电视端 3.0.9，手机端 2.1.1。测试版走 version-test.json，不进这份清单，正式用户不会收到测试版推送。",
+  "notes": "正式通道清单：电视端 3.0.9，手机端 2.1.2。测试版走 version-test.json，不进这份清单，正式用户不会收到测试版推送。",
   "channels": {
     "tv": {
       "version": "3.0.9",
@@ -19,17 +19,17 @@
       ]
     },
     "phone": {
-      "version": "2.1.1",
-      "versionCode": 2110,
+      "version": "2.1.2",
+      "versionCode": 2112,
       "releasedAt": "2026-11-27",
       "abi": "arm64-v8a",
-      "size": 26795608,
-      "md5": "4c4d0d7704ef71a1b5a400aa8b74bb3f",
-      "notes": "修播放卡在「正在获取」：分辨率探测单线路 4 秒超时，剧集初始化 12 秒总闸；切线路后自动沿用原进度与原集数；切源播放不足 30 秒不覆盖原记录；15 秒不出画面自动换线路（最多 2 次）；补齐 4 个 arm64 原生库，修 test.1 的启动闪退。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.1/OrionTV-Phone-2.1.1-arm64-v8a.apk",
+      "size": 26795952,
+      "md5": "7a0d7bd22f9d4b3a2ee3e75e4694809f",
+      "notes": "恢复设置页的「用户管理」入口（2.1.1 误删导致无法切换账号、添加账号、退出登录）；保留 2.1.1 的播放修复：卡在「正在获取」、切线路丢进度、坏线路不自动换。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2/OrionTV-Phone-2.1.2-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.1/OrionTV-Phone-2.1.1-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.1/OrionTV-Phone-2.1.1-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2/OrionTV-Phone-2.1.2-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2/OrionTV-Phone-2.1.2-arm64-v8a.apk"
       ]
     }
   }
