@@ -14,15 +14,13 @@
 >
 >   | 入口 | 内容 |
 >   |---|---|
->   | [📦 全部版本 / All Releases](../../releases) | 所有正式版 + 测试版都在这页；**所有测试版只能从这里进** |
->   | [电视端最新正式版 tv-v3.0.8](../../releases/tag/tv-v3.0.8) | `OrionTV-TV-3.0.8-armeabi-v7a.apk`（字母键盘搜索 + 全拼联想 + 用户管理修复） |
->   | [手机端最新正式版 phone-v2.1.0](../../releases/tag/phone-v2.1.0) | `OrionTV-Phone-2.1.0-arm64-v8a.apk`（锁屏 + 3 倍速 + 画面不裁剪） |
->   | [📡 电视端测试版 tv-v3.0.9-test.1](../../releases/tag/tv-v3.0.9-test.1) | `OrionTV-TV-3.0.9-test.1-armeabi-v7a.apk`（播放卡死 / 切线路丢进度 / 坏线路自动换） |
->   | [📡 手机端测试版 phone-v2.1.1-test.2](../../releases/tag/phone-v2.1.1-test.2) | `OrionTV-Phone-2.1.1-test.2-arm64-v8a.apk`（同上，已修 test.1 的启动闪退） |
+>   | [📦 全部版本 / All Releases](../../releases) | 所有正式版与测试版都在这页 |
+>   | [电视端最新正式版 tv-v3.0.9](../../releases/tag/tv-v3.0.9) | `OrionTV-TV-3.0.9-armeabi-v7a.apk`（播放卡死 / 切线路丢进度 / 坏线路自动换） |
+>   | [手机端最新正式版 phone-v2.1.1](../../releases/tag/phone-v2.1.1) | `OrionTV-Phone-2.1.1-arm64-v8a.apk`（同上） |
 >
-> ⚠️ 仓库首页右侧的 **Releases** 小卡片只显示一个 `Latest`（当前是电视端 v3.0.8）。
-> 手机端正式版和**两端的测试版都不在那里**，必须点上面的「全部版本」；
-> 进去后带灰色 `Pre-release` 标记的就是测试版，按时间倒序排在最前面。
+> ⚠️ 仓库首页右侧的 **Releases** 小卡片只显示一个 `Latest`（当前是电视端 v3.0.9），
+> 手机端不在那里，要点上面的「全部版本」。
+> 发测试版时同样只出现在「全部版本」里，带灰色 `Pre-release` 标记，不计入 `Latest`。
 >
 > 主线支持 Android 6.0 及以上。
 
@@ -37,15 +35,15 @@
 
 | 端 | 版本号规则 | 当前正式版 | 当前测试版 | versionCode | Release tag |
 |---|---|---|---|---|---|
-| 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.1.0` | `2.1.1-test.2` | 2107 / 2109 | `phone-v2.1.0` / `phone-v2.1.1-test.2` |
-| 电视 | **主版本号取奇数**（3.x、5.x、7.x…） | `3.0.8` | `3.0.9-test.1` | 3013 / 3014 | `tv-v3.0.8` / `tv-v3.0.9-test.1` |
+| 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.1.1` | 无（2.1.1-test.2 已转正） | 2110 | `phone-v2.1.1` |
+| 电视 | **主版本号取奇数**（3.x、5.x、7.x…） | `3.0.9` | 无（3.0.9-test.1 已转正） | 3015 | `tv-v3.0.9` |
 
 > 测试版用 `x.y.z-test.n` 命名，Release 勾选 **Pre-release**，不计入 `Latest`，
 > 只有主动打开对应 tag 才能装到；测试通过后把同一份代码改成正式版本号再发一次。
 >
 > **versionCode 必须比在测的测试包大**，否则测试机装不上正式版：
-> 手机 2.1.0 取 **2107**（最后一版测试包 `2.1.0-test.6` 是 2106），
-> 电视 3.0.8 取 **3013**（`3.0.7-test.6` 是 3012）。
+> 手机 2.1.1 取 **2110**（在测的 `2.1.1-test.2` 是 2109），
+> 电视 3.0.9 取 **3015**（在测的 `3.0.9-test.1` 是 3014）。
 > 同理，测试版修 bug 重发时也要递增 —— `2.1.1-test.1`（2108）因缺原生库闪退，
 > 重发的 `test.2` 用 2109 才能覆盖已装的坏包。
 
@@ -55,7 +53,8 @@
 
 1. 改 `app.config.js` 的 `CHANNEL_META` 与 `scripts/apply-build-info.js` 的 `DEFAULT_META` 中**对应渠道**那一行（两处保持一致）；
 2. 只改清单里**对应渠道**节点（另一端保持不动，那边就不会弹更新）：
-   正式版改 `version.json`，测试版改 `version-test.json`；
+   发测试版改 `version-test.json`；发正式版改 `version.json`，
+   同时把 `version-test.json` 也指向正式包（否则测试机收不到转正通知，见下）；
 3. 打这一端的包之前先固化渠道：`ORION_CHANNEL=tv ORION_VERSION=x.y.z ORION_VERSION_CODE=nnnn node scripts/apply-build-info.js`，
    它会重写 `constants/BuildInfo.ts` —— APK 里显示的版本号、更新渠道、读哪份清单都取自这里；
 4. 只在对应的 tag（`tv-vX.Y.Z` / `phone-vX.Y.Z`）建 Release，只上传这一个 APK。
@@ -69,8 +68,8 @@
 
 | 端 | 架构 | 安装包 | 界面 | 更新渠道 | 当前版本 |
 |---|---|---|---|---|---|
-| 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` | `3.0.8`（测试版 `3.0.9-test.1`） |
-| 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` | `2.1.0`（测试版 `2.1.1-test.2`） |
+| 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` | `3.0.9` |
+| 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` | `2.1.1` |
 
 > ⚠️ **打手机包必须显式指定 ABI**：`gradle.properties` 里的 `reactNativeArchitectures`
 > 默认是 `armeabi-v7a`（电视端用），`app/build.gradle` 的 `abiFilters` 只管 app 自己。
@@ -107,32 +106,32 @@
 
 | 包类型 | 读取的清单 | 内容 |
 |---|---|---|
-| 正式包（`2.1.0`、`3.0.8`） | [`version.json`](./version.json) | 只放正式版，测试用户不会被打扰 |
-| 测试包（`2.1.1-test.2`、`3.0.9-test.1`） | [`version-test.json`](./version-test.json) | 双端测试版通道，装了测试包才会读到 |
+| 正式包（`2.1.1`、`3.0.9`） | [`version.json`](./version.json) | 只放正式版，测试用户不会被打扰 |
+| 测试包（如 `2.1.1-test.2`） | [`version-test.json`](./version-test.json) | 测试通道；转正时也靠它把正式包推给测试机 |
 
 两份清单结构完全一样，都**只比较自己渠道那一段**：
 
 ```json
 {
-  "version": "3.0.8",
+  "version": "3.0.9",
   "notes": "顶层字段仅作旧客户端兜底",
   "channels": {
     "tv": {
-      "version": "3.0.8",
-      "versionCode": 3013,
-      "size": 21587909,
-      "md5": "9cb323e3d6a26a719709d6dac85c66c2",
+      "version": "3.0.9",
+      "versionCode": 3015,
+      "size": 21590658,
+      "md5": "d5d1082af6f084ee37d11af9cda0f0c9",
       "notes": "电视端更新说明（手机端看不到）",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.8/OrionTV-TV-3.0.8-armeabi-v7a.apk",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.9/OrionTV-TV-3.0.9-armeabi-v7a.apk",
       "mirrors": ["https://gh-proxy.com/https://github.com/..."]
     },
     "phone": {
-      "version": "2.1.0",
-      "versionCode": 2107,
-      "size": 26637642,
-      "md5": "b6288e9d...",
+      "version": "2.1.1",
+      "versionCode": 2110,
+      "size": 26795608,
+      "md5": "4c4d0d77...",
       "notes": "手机端更新说明（电视端看不到）",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.0/OrionTV-Phone-2.1.0-arm64-v8a.apk",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.1/OrionTV-Phone-2.1.1-arm64-v8a.apk",
       "mirrors": ["https://gh-proxy.com/https://github.com/..."]
     }
   }
@@ -142,6 +141,27 @@
 > **测试版不要写进 `version.json`**：正式清单里的版本号一高过线上版本，
 > 该端所有正式用户点「检查更新」都会收到提示。测试版号写 `version-test.json` ——
 > 只有已经装着测试包的人才会读到，正式用户完全无感。
+
+### 测试版转正时怎么推给测试用户
+
+测试包只读 `version-test.json`，正式版发完如果不改这份清单，测试机永远收不到转正通知。
+做法是把**正式版的版本号和包地址**写进 `version-test.json`：
+
+```jsonc
+// version-test.json（转正后）
+"phone": {
+  "version": "2.1.1",        // 正式版号，不带 -test
+  "versionCode": 2110,       // 必须大于在测的 2109
+  "url": ".../download/phone-v2.1.1/OrionTV-Phone-2.1.1-arm64-v8a.apk"
+}
+```
+
+`compareVersions` 里「同号段内正式版 > 预发布版」，所以 `2.1.1` 判定大于 `2.1.1-test.2`，
+测试机检查更新就会看到提示，下载的是正式包。装上之后 `IS_TEST_BUILD` 变 false，
+改读 `version.json`，后续测试版不再推给这台机器。
+
+转正完成后把旧的测试版 Release 删掉（`tools/pruneBetaReleases.py --apply`
+或 `gh release delete <tag> --cleanup-tag`），避免有人从「全部版本」里翻到旧测试包。
 
 电视端只读 `channels.tv`，手机端只读 `channels.phone`，更新日志也各用各的 `notes`。
 只改一端时，另一端的 `version` 原样保留，那边不会收到任何更新提示。
