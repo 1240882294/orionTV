@@ -17,6 +17,7 @@
 >   | [📦 全部版本 / All Releases](../../releases) | 所有正式版与测试版都在这页 |
 >   | [电视端最新正式版 tv-v3.0.9](../../releases/tag/tv-v3.0.9) | `OrionTV-TV-3.0.9-armeabi-v7a.apk`（播放卡死 / 切线路丢进度 / 坏线路自动换） |
 >   | [手机端最新正式版 phone-v2.1.1](../../releases/tag/phone-v2.1.1) | `OrionTV-Phone-2.1.1-arm64-v8a.apk`（同上） |
+>   | [📡 手机端测试版 phone-v2.1.2-test.1](../../releases/tag/phone-v2.1.2-test.1) | `OrionTV-Phone-2.1.2-test.1-arm64-v8a.apk`（恢复设置页的用户管理入口） |
 >
 > ⚠️ 仓库首页右侧的 **Releases** 小卡片只显示一个 `Latest`（当前是电视端 v3.0.9），
 > 手机端不在那里，要点上面的「全部版本」。
@@ -35,7 +36,7 @@
 
 | 端 | 版本号规则 | 当前正式版 | 当前测试版 | versionCode | Release tag |
 |---|---|---|---|---|---|
-| 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.1.1` | 无（2.1.1-test.2 已转正） | 2110 | `phone-v2.1.1` |
+| 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.1.1` | `2.1.2-test.1`（修设置页用户管理） | 2110 / 2111 | `phone-v2.1.1` / `phone-v2.1.2-test.1` |
 | 电视 | **主版本号取奇数**（3.x、5.x、7.x…） | `3.0.9` | 无（3.0.9-test.1 已转正） | 3015 | `tv-v3.0.9` |
 
 > 测试版用 `x.y.z-test.n` 命名，Release 勾选 **Pre-release**，不计入 `Latest`，
