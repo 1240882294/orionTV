@@ -1,35 +1,35 @@
 {
-  "version": "3.0.15-test.1",
-  "versionCode": 3022,
+  "version": "2.1.6",
+  "versionCode": 2120,
   "releasedAt": "2026-11-28",
-  "notes": "测试通道：电视 3.0.15-test.1（3022）、手机 2.1.6-test.1（2119）。电视修搜索框文字裁切，手机端搜索改为按剧折叠。",
+  "notes": "测试通道：电视 3.0.15（3023）、手机 2.1.6（2120）已双双转正，测试用户可升级并转入正式通道。",
   "channels": {
     "tv": {
-      "version": "3.0.15-test.1",
-      "versionCode": 3022,
+      "version": "3.0.15",
+      "versionCode": 3023,
       "releasedAt": "2026-11-28",
       "abi": "armeabi-v7a",
-      "size": 21596090,
-      "md5": "dba0a0ccf37a89385b2c47c4f8fb34cc",
+      "size": 21595815,
+      "md5": "09a78bd37cbfaa6b8cd7482b5c151bee",
       "notes": "修搜索结果返回后输入框文字只显示一半：给搜索框文字补显式行高（原来继承的 lineHeight 23 比字号 32 还小，Android 按行盒裁字），输入框改 minHeight 并锁掉系统字体缩放。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15-test.1/OrionTV-TV-3.0.15-test.1-armeabi-v7a.apk",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15/OrionTV-TV-3.0.15-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15-test.1/OrionTV-TV-3.0.15-test.1-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15-test.1/OrionTV-TV-3.0.15-test.1-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15/OrionTV-TV-3.0.15-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15/OrionTV-TV-3.0.15-armeabi-v7a.apk"
       ]
     },
     "phone": {
-      "version": "2.1.6-test.1",
-      "versionCode": 2119,
+      "version": "2.1.6",
+      "versionCode": 2120,
       "releasedAt": "2026-11-28",
       "abi": "arm64-v8a",
-      "size": 26800487,
-      "md5": "7d95b7e0b772cacbc580b12c11b49fee",
+      "size": 26800932,
+      "md5": "7eb085dc1084592b8e9cda0aed039567",
       "notes": "搜索结果显示方式与电视端对齐：同一部剧的多个源合成一张卡，卡片左上角显示「共 N 集」，列表上方显示「x 部 · 共 y 条线路」；详情页线路不受影响。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6/OrionTV-Phone-2.1.6-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6/OrionTV-Phone-2.1.6-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6/OrionTV-Phone-2.1.6-arm64-v8a.apk"
       ]
     }
   }
