@@ -278,9 +278,40 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
       // 这种情况必须用记录里的集数兜底，否则选集索引是 -1，取不到播放地址，
       // 界面就永远停在加载中，用户只能手动选集才能恢复。
       const recordEpisodeIndex = playRecord?.index ? Math.max(0, playRecord.index - 1) : 0;
-      const resolvedEpisodeIndex = episodeIndex >= 0 ? episodeIndex : recordEpisodeIndex;
-      if (episodeIndex < 0) {
+
+      // 集数以谁为准：
+      // - 从「继续观看」卡片进来（带 position）→ 以记录为准。
+      //   卡片上的集数和进度都来自同一条记录，只要跟着记录走，两者就不会打架；
+      //   之前首页卡片把 1 基的 index 当 0 基显示，导致「记录 12 集、进去是 11 集」，
+      //   这里再加一道保险，避免任何入口传参偏差演变成集数与进度错配。
+      // - 从详情页点选集进来（不带 position）→ 以路由参数为准，用户是主动选这一集。
+      const fromRecordEntry = typeof position === "number" && position > 0 && !!playRecord;
+      const baseEpisodeIndex = fromRecordEntry
+        ? recordEpisodeIndex
+        : episodeIndex >= 0
+          ? episodeIndex
+          : recordEpisodeIndex;
+
+      // 换线路后集数可能变少（记录是第 12 集，新线路只有 10 集）。
+      // 越界索引取不到播放地址，界面会永远停在加载中 —— 夹到末集并降级位置，
+      // 否则会拿着上一集的进度去播放一个更短的视频，直接跳到结尾。
+      const lastEpisodeIndex = Math.max(episodes.length - 1, 0);
+      const resolvedEpisodeIndex = Math.min(Math.max(baseEpisodeIndex, 0), lastEpisodeIndex);
+      const clampedByRange = resolvedEpisodeIndex !== baseEpisodeIndex;
+      if (clampedByRange) {
+        logger.warn(
+          `[RECORD] Episode index ${baseEpisodeIndex + 1} out of range (total ${episodes.length}), clamped to ${resolvedEpisodeIndex + 1}`
+        );
+      }
+      if (episodeIndex < 0 && !fromRecordEntry) {
         logger.info(`[RECORD] Episode index missing (-1), fallback to record: ep${resolvedEpisodeIndex + 1}`);
+      }
+      if (fromRecordEntry) {
+        logger.info(
+          `[RECORD] Restore from record: ep${resolvedEpisodeIndex + 1}/${episodes.length}, ${Math.floor(
+            initialPositionFromRecord / 1000
+          )}s (route said ep${episodeIndex + 1})`
+        );
       }
       
       const episodesMappingStart = performance.now();
@@ -294,7 +325,12 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
       set({
         isLoading: false,
         currentEpisodeIndex: resolvedEpisodeIndex,
-        initialPosition: position || initialPositionFromRecord,
+        // 集数被夹住说明记录已经和当前线路对不上，旧进度不再可信，从头开始
+        initialPosition: clampedByRange
+          ? 0
+          : fromRecordEntry
+            ? initialPositionFromRecord
+            : position || initialPositionFromRecord,
         playbackRate: savedPlaybackRate,
         episodes: mappedEpisodes,
         introEndTime: playRecord?.introEndTime || playerSettings?.introEndTime,

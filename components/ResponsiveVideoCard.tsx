@@ -277,7 +277,7 @@ const ResponsiveVideoCard = forwardRef<View, VideoCardProps>(
                 <ThemedText style={[styles.continueLabel, { 
                   fontSize: responsiveConfig.deviceType === 'mobile' ? 10 : 12 
                 }]}>
-                  第{episodeIndex! + 1}集 已观看 {Math.round((progress || 0) * 100)}%
+                  第{episodeIndex}集 已观看 {Math.round((progress || 0) * 100)}%
                 </ThemedText>
               </View>
             )}

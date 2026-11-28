@@ -3,6 +3,47 @@
 本项目基于上游 [orion-lib/OrionTV](https://github.com/orion-lib/OrionTV) 源码二次修改，
 版本号从 `1.0.0` 重新起算，与上游 1.3.14 的对应关系在每条记录里注明。
 
+## 2026-11-28 手机端 v2.1.3-test.1（测试版）· 修正「继续观看」卡片集数多一集
+
+### 现象
+
+首页「最近播放」卡片写「第 12 集 27%」，点进去播放页标题却是「第 11 集」，
+但进度确实停在上次看的位置 —— 看起来像「记录和播放对不上」，实际是卡片把
+集数显示多算了一集。
+
+### 原因
+
+同一份记录的 `index` 字段（**1 基**）在三处被当成不同基准使用：
+
+| 位置 | 写法 | 结果 |
+|---|---|---|
+| 首页数据映射 `homeStore` | `episodeIndex: record.index` | 传下去的是 1 基 |
+| 卡片显示（手机 / 平板 / ResponsiveVideoCard） | `第{episodeIndex + 1}集` | **又加 1 → 多显示一集** |
+| 卡片跳转 | `episodeIndex: episodeIndex - 1` | 正确转成 0 基，播放页显示正常 |
+| 电视端卡片 `VideoCard.tv` | `第{episodeIndex}集` | 正确，说明 1 基才是原意 |
+
+于是记录第 11 集 → 卡片写「第 12 集」→ 点进去传 10 → 播放页「第 11 集」，
+而进度来自同一条记录，所以位置是对的。**只有显示多了一集，跳转和进度都没错。**
+
+### 修复
+
+- `VideoCard.mobile.tsx` / `VideoCard.tablet.tsx` / `ResponsiveVideoCard.tsx`
+  的集数文案统一去掉多余的 `+ 1`，与 `VideoCard.tv` 对齐（均按 1 基展示）；
+- `playerStore.loadVideo` 增加集数解析的兜底：
+  - 带 `position` 参数进来（即从「继续观看」卡片进入）时**以记录里的集数为准**，
+    卡片显示与播放页从此不可能再对不上；
+  - 集数越界（换线路后新线路集数变少）时夹到末集并把进度归零，
+    避免拿旧集进度去播一个更短的视频、或索引越界导致一直加载不出来；
+  - 新增日志：`[RECORD] Restore from record: ep11/40, 744s (route said ep11)`。
+
+### 其它
+
+- 新增 `scripts/ensure-local-props.js`，接在 `set-abi` 之后：`expo prebuild --clean`
+  会删掉 `android/local.properties`，缺它 gradle 报的却是
+  「:expo 配置失败 / unknown property 'release'」，极易误判成 AGP 版本问题；
+- 版本号 `2.1.3-test.1`，versionCode **2113**（正式版 2.1.2 是 2112，必须递增才能覆盖安装）；
+- 本版只动手机端，电视端不受影响。
+
 ## 2026-11-27 手机端 v2.1.2（正式版）· 恢复设置页的用户管理入口
 
 由 `2.1.2-test.1`（2111）转正，**代码与测试版一致，仅版本号转正**，versionCode 取 `2112`（必须大于测试包的 2111 才能覆盖安装）。
