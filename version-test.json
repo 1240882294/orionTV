@@ -1,36 +1,36 @@
 {
-  "version": "2.1.2",
-  "releasedAt": "2026-11-27",
-  "notes": "测试通道清单：手机端测试版已转正为 2.1.2，两端均指向正式包，装了测试包的机器检查更新即可转正。",
+  "version": "3.0.10",
+  "releasedAt": "2026-11-28",
+  "notes": "测试通道清单：两端测试版均已转正，本清单与正式通道指向同一批安装包，装过测试包的机器检查更新即可转正。",
   "channels": {
     "tv": {
-      "version": "3.0.9",
-      "versionCode": 3015,
-      "releasedAt": "2026-11-27",
+      "version": "3.0.10",
+      "versionCode": 3017,
+      "releasedAt": "2026-11-28",
       "abi": "armeabi-v7a",
-      "size": 21590658,
-      "md5": "d5d1082af6f084ee37d11af9cda0f0c9",
-      "notes": "电视端已转正，本版即 3.0.9 正式版。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.9/OrionTV-TV-3.0.9-armeabi-v7a.apk",
+      "size": 21592075,
+      "md5": "32fb1a3ad8a2f7dca1f1a3522c1bc771",
+      "notes": "电视端 3.0.10-test.1 已转正，本版即 3.0.10 正式版。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.10/OrionTV-TV-3.0.10-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.9/OrionTV-TV-3.0.9-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.9/OrionTV-TV-3.0.9-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.10/OrionTV-TV-3.0.10-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.10/OrionTV-TV-3.0.10-armeabi-v7a.apk"
       ]
     },
     "phone": {
-      "version": "2.1.2",
-      "versionCode": 2112,
-      "releasedAt": "2026-11-27",
+      "version": "2.1.3",
+      "versionCode": 2114,
+      "releasedAt": "2026-11-28",
       "abi": "arm64-v8a",
-      "size": 26795952,
-      "md5": "7a0d7bd22f9d4b3a2ee3e75e4694809f",
-      "notes": "手机端 2.1.2-test.1 已转正为 2.1.2：恢复设置页的「用户管理」入口。测试通道指向同一个正式包，装上后不再接收后续测试版。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2/OrionTV-Phone-2.1.2-arm64-v8a.apk",
+      "size": 26795780,
+      "md5": "f3180b82b1d960b618ce86f46f254211",
+      "notes": "手机端 2.1.3-test.1 已转正，本版即 2.1.3 正式版。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.3/OrionTV-Phone-2.1.3-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2/OrionTV-Phone-2.1.2-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2/OrionTV-Phone-2.1.2-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.3/OrionTV-Phone-2.1.3-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.3/OrionTV-Phone-2.1.3-arm64-v8a.apk"
       ]
     }
   },
-  "versionCode": 2112
+  "versionCode": 2114
 }

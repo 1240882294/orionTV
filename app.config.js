@@ -23,8 +23,8 @@ const TARGET_SDK = 34;
  * 否则 APK 显示的版本和运行时比较用的版本会对不上。
  */
 const CHANNEL_META = {
-  phone: { version: "2.1.2", versionCode: 2112 },
-  tv: { version: "3.0.10-test.1", versionCode: 3016 },
+  phone: { version: "2.1.3", versionCode: 2114 },
+  tv: { version: "3.0.10", versionCode: 3017 },
 };
 const BUILD_CHANNEL = process.env.ORION_CHANNEL === "tv" ? "tv" : "phone";
 // 允许命令行直接指定版本号，发测试版时不用改这个文件再改回去
