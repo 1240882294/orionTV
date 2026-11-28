@@ -18,9 +18,12 @@
 >   | [电视端最新正式版 tv-v3.0.16](../../releases/tag/tv-v3.0.16) | `OrionTV-TV-3.0.16-armeabi-v7a.apk`（修输入法搜索键有时不生效 / 搜索框文字裁切 / 结果按剧折叠） |
 >   | [手机端最新正式版 phone-v2.1.6](../../releases/tag/phone-v2.1.6) | `OrionTV-Phone-2.1.6-arm64-v8a.apk`（搜索结果按剧折叠，与电视端一致） |
 >
-> ✅ **2026-11-28 电视 3.0.16（3025）已转正**：[`version.json`](./version.json) 与
-> [`version-test.json`](./version-test.json) 的 tv 节点都指向这个正式包，正式用户与测试用户都能收到。
-> 当前没有在推的测试版。
+> ✅ **2026-11-28 双端均为正式版**：电视 `3.0.16`（3025）、手机 `2.1.6`（2120）。
+> [`version.json`](./version.json) 与 [`version-test.json`](./version-test.json) 的 tv / phone 节点
+> 全部指向正式包，正式用户与测试用户点「检查更新」都能升上来。当前没有在推的测试版。
+>
+> 仓库里的构建基线 `constants/BuildInfo.ts` 也已归位到 `phone` / `2.1.6` / 2120，
+> 从 `main` 直接打包不会再生出 `-test` 包。
 >
 > ⚠️ 仓库首页右侧的 **Releases** 小卡片只显示一个 `Latest`（当前是电视端 v3.0.16 正式版），
 > 电视端不在那里，要点上面的「全部版本」。
