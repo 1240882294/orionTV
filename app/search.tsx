@@ -328,29 +328,14 @@ export default function SearchScreen() {
     showRemoteModal('search');
   };
 
-  const renderItem = ({ item }: { item: SearchResult; index: number }) => (
-    <VideoCard
-      id={item.id.toString()}
-      source={item.source}
-      title={item.title}
-      poster={item.poster}
-      year={item.year}
-      sourceName={item.source_name}
-      api={api}
-    />
-  );
-
   /**
-   * 电视端把「同一部剧 × N 个源」折叠成一张卡。
+   * 把「同一部剧 × N 个源」折叠成一张卡。
    *
    * 服务端是逐源返回的，搜「愚者之夜」会拿到 189 条，实际只有个位数部剧；
    * 详情页本来就按 source 合并成线路列表，所以这里只影响展示，不改跳转。
-   * 手机端保持原样（不折叠）。
+   * 电视/手机/平板共用同一套分组，三端表现一致。
    */
-  const groupedResults = useMemo<GroupedResult[]>(
-    () => (isTV ? groupByTitle(results) : []),
-    [results, isTV]
-  );
+  const groupedResults = useMemo<GroupedResult[]>(() => groupByTitle(results), [results]);
 
   const renderGroupedItem = ({ item }: { item: GroupedResult; index: number }) => (
     <VideoCard
@@ -461,13 +446,20 @@ export default function SearchScreen() {
           />
         </View>
       ) : (
-        <CustomScrollView
-          data={results}
-          renderItem={renderItem}
-          loading={loading}
-          error={error}
-          emptyMessage="输入关键词开始搜索"
-        />
+        <>
+          {!loading && results.length > 0 ? (
+            <ThemedText style={dynamicStyles.resultSummary}>
+              {groupedResults.length} 部 · 共 {results.length} 条线路
+            </ThemedText>
+          ) : null}
+          <CustomScrollView
+            data={groupedResults}
+            renderItem={renderGroupedItem}
+            loading={loading}
+            error={error}
+            emptyMessage="输入关键词开始搜索"
+          />
+        </>
       )}
     </>
   );
@@ -560,11 +552,22 @@ export default function SearchScreen() {
       <View style={dynamicStyles.tvHeader}>
         <View style={dynamicStyles.tvDisplay}>
           {keyword ? (
-            <ThemedText style={dynamicStyles.tvDisplayText} numberOfLines={1}>
+            <ThemedText
+              style={dynamicStyles.tvDisplayText}
+              numberOfLines={1}
+              // 电视上系统字体缩放会让字号突然变大、超出固定行盒再次被切，这里锁死
+              allowFontScaling={false}
+            >
               {keyword}
             </ThemedText>
           ) : (
-            <ThemedText style={dynamicStyles.tvPlaceholder}>点字母拼拼音，或输首字母</ThemedText>
+            <ThemedText
+              style={dynamicStyles.tvPlaceholder}
+              numberOfLines={1}
+              allowFontScaling={false}
+            >
+              点字母拼拼音，或输首字母
+            </ThemedText>
           )}
           <View style={dynamicStyles.tvCaret} />
           <View style={{ flex: 1 }} />
@@ -958,6 +961,13 @@ const createResponsiveStyles = (deviceType: string, spacing: number, screenHeigh
       fontSize: isMobile ? 15 : 18,
       flexShrink: 1,
     },
+    /** 结果计数：手机/平板折叠后告诉用户「几部剧、一共多少条线路」 */
+    resultSummary: {
+      paddingHorizontal: spacing + 4,
+      paddingBottom: 8,
+      color: "rgba(255,255,255,0.45)",
+      fontSize: isMobile ? 12 : 14,
+    },
 
     /* ---------- 电视：键盘 + 候选 ---------- */
     tvHeader: {
@@ -969,7 +979,8 @@ const createResponsiveStyles = (deviceType: string, spacing: number, screenHeigh
     },
     tvDisplay: {
       flex: 1,
-      height: 76,
+      // 用 minHeight 而不是 height：字号被系统字体缩放放大时盒子跟着长，不会把字切掉
+      minHeight: 76,
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: "#141820",
@@ -977,14 +988,30 @@ const createResponsiveStyles = (deviceType: string, spacing: number, screenHeigh
       borderColor: "#2d3542",
       borderRadius: 12,
       paddingHorizontal: 22,
+      paddingVertical: 8,
     },
+    /**
+     * 这里必须显式给 lineHeight。
+     *
+     * ThemedText 默认带 `lineHeight: 24 * scale`，1080p 电视上 scale≈0.96 → 23；
+     * 而这里只覆盖了 fontSize 32，行高还是 23。Android 的 TextView 在
+     * numberOfLines=1 时会按行高裁切字形 —— 从结果页返回、输入框一下子带进整词
+     * （"乡"这种满格汉字）时，就只露出上面一半。给足行高 + 关掉字体内边距，
+     * 字形才不会被行盒切掉。
+     */
     tvDisplayText: {
       fontSize: 32,
+      lineHeight: 44,
+      includeFontPadding: false,
+      textAlignVertical: "center",
       color: "#ffffff",
       letterSpacing: 2,
     },
     tvPlaceholder: {
       fontSize: 26,
+      lineHeight: 36,
+      includeFontPadding: false,
+      textAlignVertical: "center",
       color: "#586170",
     },
     tvCaret: {
@@ -1101,11 +1128,15 @@ const createResponsiveStyles = (deviceType: string, spacing: number, screenHeigh
     },
     tvBackText: {
       fontSize: 22,
+      lineHeight: 30,
+      includeFontPadding: false,
       color: "#ffffff",
     },
     tvResultTitle: {
       flex: 1,
       fontSize: 24,
+      lineHeight: 34,
+      includeFontPadding: false,
       color: "rgba(255,255,255,0.62)",
     },
     tvEmptyHint: {

@@ -1,35 +1,35 @@
 {
-  "version": "2.1.5",
-  "versionCode": 2118,
+  "version": "3.0.15-test.1",
+  "versionCode": 3022,
   "releasedAt": "2026-11-28",
-  "notes": "正式版：手机 2.1.5（2118）已转正，正式用户检查更新即可升级；电视仍是 3.0.14-test.1（3021），本批不动。",
+  "notes": "正式通道：电视 3.0.15-test.1（3022）、手机 2.1.6-test.1（2119）。电视修搜索框文字裁切，手机端搜索改为按剧折叠。",
   "channels": {
     "tv": {
-      "version": "3.0.14-test.1",
-      "versionCode": 3021,
+      "version": "3.0.15-test.1",
+      "versionCode": 3022,
       "releasedAt": "2026-11-28",
       "abi": "armeabi-v7a",
-      "size": 21595660,
-      "md5": "b6e2da7b4493e2037a23a1e671c8c2bf",
-      "notes": "搜索结果按剧折叠：同一部剧的多个源合成一张卡，不再满屏重复；卡片左上角由源名改为「共 N 集」；标题为主、年份兜底分组（同名不同版会拆开）。只改电视端。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.14-test.1/OrionTV-TV-3.0.14-test.1-armeabi-v7a.apk",
+      "size": 21596090,
+      "md5": "dba0a0ccf37a89385b2c47c4f8fb34cc",
+      "notes": "修搜索结果返回后输入框文字只显示一半：给搜索框文字补显式行高（原来继承的 lineHeight 23 比字号 32 还小，Android 按行盒裁字），输入框改 minHeight 并锁掉系统字体缩放。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15-test.1/OrionTV-TV-3.0.15-test.1-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.14-test.1/OrionTV-TV-3.0.14-test.1-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.14-test.1/OrionTV-TV-3.0.14-test.1-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15-test.1/OrionTV-TV-3.0.15-test.1-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15-test.1/OrionTV-TV-3.0.15-test.1-armeabi-v7a.apk"
       ]
     },
     "phone": {
-      "version": "2.1.5",
-      "versionCode": 2118,
+      "version": "2.1.6-test.1",
+      "versionCode": 2119,
       "releasedAt": "2026-11-28",
       "abi": "arm64-v8a",
-      "size": 26796377,
-      "md5": "4d2a17a1dee4fada7338c245deb4d650",
-      "notes": "2.1.5 正式版：修起播即暂停与点播放报「操作失败」（先起播再回进度，未加载完提示「正在加载」）；修联想搜索首个请求超时（12 秒 + 重试一次，豆瓣预热降并发并延后）。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5/OrionTV-Phone-2.1.5-arm64-v8a.apk",
+      "size": 26800487,
+      "md5": "7d95b7e0b772cacbc580b12c11b49fee",
+      "notes": "搜索结果显示方式与电视端对齐：同一部剧的多个源合成一张卡，卡片左上角显示「共 N 集」，列表上方显示「x 部 · 共 y 条线路」；详情页线路不受影响。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5/OrionTV-Phone-2.1.5-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5/OrionTV-Phone-2.1.5-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk"
       ]
     }
   }

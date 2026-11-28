@@ -41,6 +41,7 @@ const VideoCardMobile = forwardRef<View, VideoCardMobileProps>(
       sourceName,
       progress,
       episodeIndex,
+      totalEpisodes,
       onFocus,
       onRecordDeleted,
       api,
@@ -154,12 +155,16 @@ const VideoCardMobile = forwardRef<View, VideoCardMobileProps>(
               </View>
             )}
 
-            {/* 来源 */}
-            {sourceName && (
+            {/* 搜索结果已按剧折叠，这里不再标源名，改标该剧的集数；其它场景仍显示源名 */}
+            {totalEpisodes && totalEpisodes > 0 ? (
+              <View style={styles.sourceNameBadge}>
+                <Text style={styles.badgeText}>共{totalEpisodes}集</Text>
+              </View>
+            ) : sourceName ? (
               <View style={styles.sourceNameBadge}>
                 <Text style={styles.badgeText}>{sourceName}</Text>
               </View>
-            )}
+            ) : null}
           </View>
 
           <View style={styles.infoContainer}>

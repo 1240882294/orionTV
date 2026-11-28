@@ -41,6 +41,7 @@ const VideoCardTablet = forwardRef<View, VideoCardTabletProps>(
       sourceName,
       progress,
       episodeIndex,
+      totalEpisodes,
       onFocus,
       onRecordDeleted,
       api,
@@ -187,11 +188,15 @@ const VideoCardTablet = forwardRef<View, VideoCardTabletProps>(
             )}
 
             {/* 来源 */}
-            {sourceName && (
+            {totalEpisodes && totalEpisodes > 0 ? (
+              <View style={styles.sourceNameBadge}>
+                <Text style={styles.badgeText}>共{totalEpisodes}集</Text>
+              </View>
+            ) : sourceName ? (
               <View style={styles.sourceNameBadge}>
                 <Text style={styles.badgeText}>{sourceName}</Text>
               </View>
-            )}
+            ) : null}
           </View>
 
           <View style={styles.infoContainer}>

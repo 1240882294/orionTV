@@ -3,6 +3,33 @@
 本项目基于上游 [orion-lib/OrionTV](https://github.com/orion-lib/OrionTV) 源码二次修改，
 版本号从 `1.0.0` 重新起算，与上游 1.3.14 的对应关系在每条记录里注明。
 
+## 2026-11-28 双端测试版 · 电视 3.0.15-test.1 / 手机 2.1.6-test.1
+
+电视端修「搜索结果返回后输入框文字被切一半」；手机端搜索也改成按剧折叠，与电视端一致。
+
+| 端 | 版本 | versionCode | 内容 |
+|---|---|---|---|
+| 电视 | **3.0.15-test.1** | 3022 | 修输入框文字裁切（`lineHeight` < `fontSize`） |
+| 手机 | **2.1.6-test.1** | 2119 | 搜索结果按剧折叠 + 「共 N 集」角标 |
+
+### 电视端：文字被切一半
+
+`ThemedText` 默认带 `lineHeight: 24 × scale`，1080p 电视上 scale≈0.96 → 行高 23；
+搜索框只覆盖了 `fontSize: 32`，行高仍是最小值。Android 的 TextView 在
+`numberOfLines=1` 时按行盒裁切字形，所以从结果页返回、输入框一次带进整词时，
+汉字下半截被切掉。
+
+- 给 `tvDisplayText` / `tvPlaceholder` / `tvResultTitle` / `tvBackText` 补显式 `lineHeight`；
+- `includeFontPadding: false` + `textAlignVertical: "center"`，字形不再受字体内边距挤压；
+- 输入框 `height: 76` → `minHeight: 76` + `paddingVertical`，字号变大时盒子跟着长；
+- 这两处文本锁 `allowFontScaling={false}`，避免电视系统字体缩放再次顶出行盒。
+
+### 手机端：搜索结果折叠
+
+`groupByTitle` 从「仅电视」放开到三端共用，手机/平板列表也走分组数据，
+卡片角标改为「共 N 集」，列表上方多一行「x 部 · 共 y 条线路」。
+跳转仍传 `{source, q}`，详情页照旧全量搜索，线路一条不少。
+
 ## 2026-11-28 手机正式版 · 2.1.5
 
 `2.1.5-test.1` 转正，内容与该测试版一致（**不含**已撤回的 2.1.6 搜索改动）。
