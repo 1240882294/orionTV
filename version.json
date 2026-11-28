@@ -1,8 +1,8 @@
 {
-  "version": "2.1.6-test.1",
-  "versionCode": 2117,
+  "version": "2.1.5-test.1",
+  "versionCode": 2116,
   "releasedAt": "2026-11-28",
-  "notes": "正式通道临时指向测试版：电视 3.0.13-test.1（3020）、手机 2.1.6-test.1（2117）。搜索页不再抢带宽，失败自动重试 3 次并可原地重搜；电视端新增「最近搜索」。正式用户检查更新即可覆盖升级，装后转入测试通道。",
+  "notes": "正式通道：电视 3.0.13-test.1（3020）、手机 2.1.5-test.1（2116）。手机端已撤回 2.1.6（那版只是跟着电视端一起加了搜索改动，手机本身没有待修问题），停在修好起播的 2.1.5。",
   "channels": {
     "tv": {
       "version": "3.0.13-test.1",
@@ -19,17 +19,17 @@
       ]
     },
     "phone": {
-      "version": "2.1.6-test.1",
-      "versionCode": 2117,
+      "version": "2.1.5-test.1",
+      "versionCode": 2116,
       "releasedAt": "2026-11-28",
       "abi": "arm64-v8a",
-      "size": 26799287,
-      "md5": "fc6c514767bd5b7aa19e68e1e62ddfc3",
-      "notes": "搜索与电视端同步：不抢带宽、超时自动重试 3 次、失败页原地重搜、搜索历史落盘。含 2.1.5 的起播修复：先起播再回进度，未加载完点播放提示「正在加载」而非「操作失败」。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk",
+      "size": 26796675,
+      "md5": "e6437e6b558ecdcffcbf810ca61806b6",
+      "notes": "修手机端起播即暂停、点播放报「操作失败」：先起播再回进度，未加载完点播放提示「正在加载」；同时修联想搜索首请求超时。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk"
       ]
     }
   }
