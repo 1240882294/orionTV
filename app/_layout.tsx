@@ -3,7 +3,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { Platform, View, StyleSheet } from "react-native";
+import { Dimensions, Platform, View, StyleSheet } from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
 import Toast from "react-native-toast-message";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -19,6 +19,7 @@ import { UpdateModal } from "@/components/UpdateModal";
 import { UserManagementModal } from "@/components/UserManagementModal";
 import { initUpdateStore, useUpdateStore } from "@/stores/updateStore";
 import { UPDATE_CONFIG } from "@/constants/UpdateConfig";
+import { BUILD_CHANNEL, BUILD_VERSION } from "@/constants/BuildInfo";
 import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('RootLayout');
@@ -53,6 +54,24 @@ export default function RootLayout() {
       });
     }
   }, []);
+
+  // 实机自检：把「这包是哪一端、屏幕多大、被判成什么形态、卡片走哪个实现」打进启动日志。
+  // 电视盒子不一定会报 uiMode=television，设备形态只能靠宽度兜底（>=1024 才算 tv），
+  // 窄屏盒子会被判成 tablet、走 VideoCard.tablet —— 集数显示由这条日志一眼定位。
+  useEffect(() => {
+    const { width, height } = Dimensions.get("window");
+    const { deviceType } = responsiveConfig;
+    const card =
+      deviceType === "tv"
+        ? "VideoCard.tv"
+        : deviceType === "tablet"
+          ? "VideoCard.tablet"
+          : "VideoCard.mobile";
+    logger.info(
+      `[DEVICE] channel=${BUILD_CHANNEL} version=${BUILD_VERSION} isTV=${Platform.isTV} ` +
+        `screen=${Math.round(width)}x${Math.round(height)} deviceType=${deviceType} card=${card}`
+    );
+  }, [responsiveConfig.deviceType]);
 
   // 启动序列：读配置 -> 扫描账号 -> 连接服务器 -> 刷新账号
   // 连接失败会停在 BootGate 的错误页，不会带着空数据进入首页
