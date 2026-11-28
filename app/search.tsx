@@ -679,7 +679,9 @@ export default function SearchScreen() {
           inputRef={systemInputRef}
           onClose={closeSystemInput}
           onSubmit={(text) => {
-            setSystemInputVisible(false);
+            // 统一走 closeSystemInput：它会把焦点送回键盘图标，
+            // 直接 setState(false) 在电视上会留下「整页没有高亮」的状态
+            closeSystemInput();
             applyKeyword(text);
             void handleSearch(text);
           }}
@@ -713,34 +715,79 @@ const SystemInputModal: React.FC<{
   onSubmit: (text: string) => void;
 }> = ({ visible, inputRef, onClose, onSubmit }) => {
   const draftRef = useRef("");
+  /** 提交一次就锁：Enter、输入法搜索键、失焦兜底三条路可能同时到，只认第一次 */
+  const submittedRef = useRef(false);
+  /** 用户主动取消（点 X / 返回键）：之后失焦不要再自动提交 */
+  const cancelledRef = useRef(false);
+  /** 空提交时的提示。不用 Toast —— Modal 是独立窗口，会把 Toast 盖在下面 */
+  const [warning, setWarning] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) return;
     draftRef.current = "";
-    // 打开时清空并聚焦；Dialog 刚创建时 focus 会被吞，多试几轮
-    const timers = [90, 420, 900].map((delay) =>
+    submittedRef.current = false;
+    cancelledRef.current = false;
+    setWarning(null);
+    // Dialog 刚创建时 focus 会被吞，多试几轮。
+    // 只在输入框还空着时才清空 —— 原来固定 900ms 内连清三次，
+    // 手快的用户打进去的字会被抹掉，draft 也跟着变空，再按搜索键就是一次空提交。
+    const timers = [80, 380].map((delay) =>
       setTimeout(() => {
-        inputRef.current?.setNativeProps?.({ text: "" });
+        if (!draftRef.current) inputRef.current?.setNativeProps?.({ text: "" });
         inputRef.current?.focus?.();
       }, delay)
     );
     return () => timers.forEach(clearTimeout);
   }, [visible, inputRef]);
 
-  const submit = () => {
-    const text = draftRef.current.trim();
-    if (text) onSubmit(text);
-  };
+  const commit = useCallback(
+    (raw?: string) => {
+      if (submittedRef.current) return;
+      const text = (raw ?? draftRef.current).trim();
+      if (!text) {
+        // 以前这里直接 return —— 电视上表现为「按了搜索键什么也没发生」，
+        // 用户只能以为控件坏了。现在至少给一句话说明。
+        setWarning("先输入片名，再按输入法的「搜索」键");
+        return;
+      }
+      setWarning(null);
+      submittedRef.current = true;
+      onSubmit(text);
+    },
+    [onSubmit]
+  );
+
+  /**
+   * 输入法一收起就兜底提交（有字的前提下）。
+   *
+   * 电视输入法的「搜索」键行为并不统一：有的发 EditorAction（走 onSubmitEditing），
+   * 有的只发一个 Enter keyevent（RN 不会把它转成提交），有的干脆只把键盘窗口关掉。
+   * 最后一种就是「点了搜索键却退回键盘页、什么都没搜」的来源 —— 字还在输入框里，
+   * 但没有任何回调被触发，页面自然停在原地。
+   */
+  const commitOnLeave = useCallback(
+    (text?: string) => {
+      if (!visible || submittedRef.current || cancelledRef.current) return;
+      const value = (text ?? draftRef.current).trim();
+      if (value) commit(value);
+    },
+    [visible, commit]
+  );
+
+  const cancel = useCallback(() => {
+    cancelledRef.current = true;
+    onClose();
+  }, [onClose]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={cancel}>
       <View style={modalStyles.overlay}>
         <View style={modalStyles.card}>
           <View style={modalStyles.header}>
             <ThemedText style={modalStyles.title}>用系统输入法搜索</ThemedText>
             <Pressable
               focusable
-              onPress={onClose}
+              onPress={cancel}
               style={({ focused }: { focused?: boolean }) => [
                 modalStyles.iconButton,
                 focused && modalStyles.iconButtonFocused,
@@ -751,8 +798,10 @@ const SystemInputModal: React.FC<{
           </View>
 
           <ThemedText style={modalStyles.hint}>
-            打中文全名，按确认键直接搜。词库里没有的片子走这条路。
+            打中文全名，按输入法的「搜索」键或下面的按钮直接搜。词库里没有的片子走这条路。
           </ThemedText>
+
+          {warning ? <ThemedText style={modalStyles.warning}>{warning}</ThemedText> : null}
 
           <TextInput
             ref={inputRef}
@@ -760,11 +809,24 @@ const SystemInputModal: React.FC<{
             defaultValue=""
             onChangeText={(text) => {
               draftRef.current = text;
+              if (warning) setWarning(null);
             }}
+            onSubmitEditing={() => commit()}
+            // 遥控器 / 外接键盘的 Enter 在 Android 上不一定被转成 onSubmitEditing，
+            // 单独接一层 keyPress，让「按确认键搜索」在两种输入下都成立
+            onKeyPress={(e) => {
+              if (e.nativeEvent?.key === "Enter") commit();
+            }}
+            onEndEditing={(e) => {
+              const t = (e.nativeEvent as { text?: string })?.text;
+              if (typeof t === "string" && t.trim()) draftRef.current = t;
+              commitOnLeave(t);
+            }}
+            onBlur={() => commitOnLeave()}
+            blurOnSubmit
             placeholder="输入片名..."
             placeholderTextColor="#77777f"
             returnKeyType="search"
-            onSubmitEditing={submit}
             selectTextOnFocus
             autoCorrect={false}
             autoCapitalize="none"
@@ -772,7 +834,7 @@ const SystemInputModal: React.FC<{
 
           <Pressable
             focusable
-            onPress={submit}
+            onPress={() => commit()}
             style={({ focused }: { focused?: boolean }) => [
               modalStyles.submit,
               focused && modalStyles.submitFocused,
@@ -830,6 +892,12 @@ const modalStyles = StyleSheet.create({
     fontSize: 15,
     color: "rgba(255,255,255,0.5)",
     marginBottom: 16,
+  },
+  warning: {
+    fontSize: 15,
+    color: "#ff9a8a",
+    marginTop: 10,
+    marginBottom: 2,
   },
   input: {
     height: 64,

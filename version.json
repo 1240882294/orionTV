@@ -1,21 +1,21 @@
 {
-  "version": "2.1.6",
-  "versionCode": 2120,
+  "version": "3.0.16-test.1",
+  "versionCode": 3024,
   "releasedAt": "2026-11-28",
-  "notes": "正式通道：电视 3.0.15（3023）、手机 2.1.6（2120）双双转正。电视修搜索框文字裁切，手机端搜索改为按剧折叠。",
+  "notes": "正式通道：电视 3.0.16-test.1（3024）修输入法搜索键有时不生效；手机仍是正式版 2.1.6（2120），本批不动。",
   "channels": {
     "tv": {
-      "version": "3.0.15",
-      "versionCode": 3023,
+      "version": "3.0.16-test.1",
+      "versionCode": 3024,
       "releasedAt": "2026-11-28",
       "abi": "armeabi-v7a",
-      "size": 21595815,
-      "md5": "09a78bd37cbfaa6b8cd7482b5c151bee",
-      "notes": "修搜索结果返回后输入框文字只显示一半：给搜索框文字补显式行高（原来继承的 lineHeight 23 比字号 32 还小，Android 按行盒裁字），输入框改 minHeight 并锁掉系统字体缩放。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15/OrionTV-TV-3.0.15-armeabi-v7a.apk",
+      "size": 21596988,
+      "md5": "a02ebcd7ec0555c3e0e13043ca4208dc",
+      "notes": "修系统输入法弹窗点「搜索」键有时不生效：补 Enter 与失焦两条提交路径，空提交不再静默。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.16-test.1/OrionTV-TV-3.0.16-test.1-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15/OrionTV-TV-3.0.15-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.15/OrionTV-TV-3.0.15-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.16-test.1/OrionTV-TV-3.0.16-test.1-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.16-test.1/OrionTV-TV-3.0.16-test.1-armeabi-v7a.apk"
       ]
     },
     "phone": {
