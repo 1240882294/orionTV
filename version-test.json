@@ -1,21 +1,21 @@
 {
-  "version": "2.1.5-test.1",
-  "versionCode": 2116,
+  "version": "3.0.14-test.1",
+  "versionCode": 3021,
   "releasedAt": "2026-11-28",
-  "notes": "测试通道：电视 3.0.13-test.1（3020）、手机 2.1.5-test.1（2116）。手机 2.1.6 已撤回。",
+  "notes": "测试通道：电视 3.0.14-test.1（3021）、手机 2.1.5-test.1（2116）。本批只更新电视端。",
   "channels": {
     "tv": {
-      "version": "3.0.13-test.1",
-      "versionCode": 3020,
+      "version": "3.0.14-test.1",
+      "versionCode": 3021,
       "releasedAt": "2026-11-28",
       "abi": "armeabi-v7a",
-      "size": 21594955,
-      "md5": "9d2efdbdaf2e788f6d16a5c81686186f",
-      "notes": "打开搜索页只建本地词库、不发豆瓣请求，豆瓣榜单改为首搜成功后补一次；搜索失败自动重试 3 次并显示第几次，失败页可「重试一次」原地重搜，返回键盘保留关键词；右侧新增「最近搜索」，与「热门搜索」并排两列。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.13-test.1/OrionTV-TV-3.0.13-test.1-armeabi-v7a.apk",
+      "size": 21595660,
+      "md5": "b6e2da7b4493e2037a23a1e671c8c2bf",
+      "notes": "搜索结果按剧折叠：同一部剧的多个源合成一张卡，不再满屏重复；卡片左上角由源名改为「共 N 集」；标题为主、年份兜底分组（同名不同版会拆开）。只改电视端。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.14-test.1/OrionTV-TV-3.0.14-test.1-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.13-test.1/OrionTV-TV-3.0.13-test.1-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.13-test.1/OrionTV-TV-3.0.13-test.1-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.14-test.1/OrionTV-TV-3.0.14-test.1-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.14-test.1/OrionTV-TV-3.0.14-test.1-armeabi-v7a.apk"
       ]
     },
     "phone": {

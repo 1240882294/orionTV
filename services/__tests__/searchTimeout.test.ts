@@ -81,10 +81,10 @@ describe("聚合搜索的超时与重试", () => {
     const timeouts: number[] = [];
     jest
       .spyOn(client as any, "performFetch")
-      .mockImplementation((_url: string, _init: any, timeoutMs: number) => {
+      .mockImplementation(((_url: string, _init: any, timeoutMs: number) => {
         timeouts.push(timeoutMs);
         return Promise.resolve(okResponse([]));
-      });
+      }) as any);
 
     await client.searchVideos("仙逆");
 

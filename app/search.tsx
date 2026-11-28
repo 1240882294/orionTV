@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   TextInput,
@@ -40,6 +40,7 @@ import {
   SuggestEntry,
 } from "@/services/searchSuggestIndex";
 import { SearchHistoryManager } from "@/services/storage";
+import { groupByTitle, GroupedResult } from "@/services/searchGrouping";
 import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('SearchScreen');
@@ -339,6 +340,30 @@ export default function SearchScreen() {
     />
   );
 
+  /**
+   * 电视端把「同一部剧 × N 个源」折叠成一张卡。
+   *
+   * 服务端是逐源返回的，搜「愚者之夜」会拿到 189 条，实际只有个位数部剧；
+   * 详情页本来就按 source 合并成线路列表，所以这里只影响展示，不改跳转。
+   * 手机端保持原样（不折叠）。
+   */
+  const groupedResults = useMemo<GroupedResult[]>(
+    () => (isTV ? groupByTitle(results) : []),
+    [results, isTV]
+  );
+
+  const renderGroupedItem = ({ item }: { item: GroupedResult; index: number }) => (
+    <VideoCard
+      id={item.primary.id.toString()}
+      source={item.primary.source}
+      title={item.primary.title}
+      poster={item.poster || item.primary.poster}
+      year={item.year}
+      totalEpisodes={item.totalEpisodes || undefined}
+      api={api}
+    />
+  );
+
   // 动态样式
   const dynamicStyles = createResponsiveStyles(deviceType, spacing, height);
 
@@ -469,7 +494,9 @@ export default function SearchScreen() {
 
         <ThemedText style={dynamicStyles.tvResultTitle} numberOfLines={1}>
           「{searchTerm}」的结果
-          {!loading && results.length > 0 ? ` · ${results.length} 部` : ""}
+          {!loading && results.length > 0
+            ? ` · ${groupedResults.length} 部 · 共 ${results.length} 条线路`
+            : ""}
         </ThemedText>
       </View>
 
@@ -501,8 +528,8 @@ export default function SearchScreen() {
         </View>
       ) : (
         <CustomScrollView
-          data={results}
-          renderItem={renderItem}
+          data={groupedResults}
+          renderItem={renderGroupedItem}
           loading={loading}
           error={error}
           emptyMessage="输入关键词开始搜索"
