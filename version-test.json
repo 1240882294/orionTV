@@ -1,8 +1,8 @@
 {
-  "version": "3.0.14-test.1",
-  "versionCode": 3021,
+  "version": "2.1.5",
+  "versionCode": 2118,
   "releasedAt": "2026-11-28",
-  "notes": "测试通道：电视 3.0.14-test.1（3021）、手机 2.1.5-test.1（2116）。本批只更新电视端。",
+  "notes": "测试通道：手机 2.1.5（2118）已转正，测试用户可升级并转入正式通道；电视仍是 3.0.14-test.1（3021）。",
   "channels": {
     "tv": {
       "version": "3.0.14-test.1",
@@ -19,17 +19,17 @@
       ]
     },
     "phone": {
-      "version": "2.1.5-test.1",
-      "versionCode": 2116,
+      "version": "2.1.5",
+      "versionCode": 2118,
       "releasedAt": "2026-11-28",
       "abi": "arm64-v8a",
-      "size": 26796675,
-      "md5": "e6437e6b558ecdcffcbf810ca61806b6",
-      "notes": "修手机端起播即暂停、点播放报「操作失败」：先起播再回进度，未加载完点播放提示「正在加载」；同时修联想搜索首请求超时。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk",
+      "size": 26796377,
+      "md5": "4d2a17a1dee4fada7338c245deb4d650",
+      "notes": "2.1.5 正式版：修起播即暂停与点播放报「操作失败」（先起播再回进度，未加载完提示「正在加载」）；修联想搜索首个请求超时（12 秒 + 重试一次，豆瓣预热降并发并延后）。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5/OrionTV-Phone-2.1.5-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5/OrionTV-Phone-2.1.5-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5/OrionTV-Phone-2.1.5-arm64-v8a.apk"
       ]
     }
   }
