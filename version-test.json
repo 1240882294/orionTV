@@ -1,21 +1,21 @@
 {
-  "version": "3.0.16-test.1",
-  "versionCode": 3024,
+  "version": "3.0.16",
+  "versionCode": 3025,
   "releasedAt": "2026-11-28",
-  "notes": "测试通道：电视 3.0.16-test.1（3024）修输入法搜索键有时不生效；手机正式版 2.1.6（2120）不变。",
+  "notes": "测试通道：电视 3.0.16（3025）已转正，测试用户可升级并转入正式通道；手机正式版 2.1.6（2120）不变。",
   "channels": {
     "tv": {
-      "version": "3.0.16-test.1",
-      "versionCode": 3024,
+      "version": "3.0.16",
+      "versionCode": 3025,
       "releasedAt": "2026-11-28",
       "abi": "armeabi-v7a",
-      "size": 21596988,
-      "md5": "a02ebcd7ec0555c3e0e13043ca4208dc",
+      "size": 21595787,
+      "md5": "b06cc32f537444aee4b1a79ff3d1fd36",
       "notes": "修系统输入法弹窗点「搜索」键有时不生效：补 Enter 与失焦两条提交路径，空提交不再静默。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.16-test.1/OrionTV-TV-3.0.16-test.1-armeabi-v7a.apk",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.16/OrionTV-TV-3.0.16-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.16-test.1/OrionTV-TV-3.0.16-test.1-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.16-test.1/OrionTV-TV-3.0.16-test.1-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.16/OrionTV-TV-3.0.16-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.16/OrionTV-TV-3.0.16-armeabi-v7a.apk"
       ]
     },
     "phone": {
