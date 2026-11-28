@@ -111,16 +111,30 @@ export const isAuthFailure = (error: unknown): boolean =>
 const DEFAULT_TIMEOUT_MS = 8000;
 
 /**
- * 聚合搜索的超时。
+ * 聚合搜索的超时与重试。
  *
- * 搜索页一打开就并发拉 10 个豆瓣榜单灌词库，电视盒子在 200~300 B/s 时，
- * 建连 + 首包很容易超过 8 秒 —— 表现就是「点联想词直接搜索失败」，
- * 而先用系统输入法搜过一次（那时预热已结束、连接已热）同一部片又能搜到。
- * 这里对搜索单独放宽，超时后还会重试一次。
+ * /api/search 由服务端聚合所有源，弱网下首包可能要好几秒。单次 8 秒、
+ * 最多 3 次尝试（退避 0 / 0.4s / 1.2s），总上限约 26 秒。
+ *
+ * 只对「超时」重试：断网、401、5xx 再试也没用，只会让用户多等一轮。
+ * 搜索页通过 onAttempt 把「第 2/3 次」显示出来，避免界面看着像卡死。
  */
-const SEARCH_TIMEOUT_MS = 12000;
-/** 重试放宽到 10 秒：第二次连接已建立，正常情况下 1~2 秒就回来 */
-const SEARCH_RETRY_TIMEOUT_MS = 10000;
+const SEARCH_TIMEOUT_MS = 8000;
+const SEARCH_ATTEMPTS = 3;
+const SEARCH_BACKOFF_MS = [0, 400, 1200];
+
+export interface SearchOptions {
+  /** 总尝试次数，默认 3（首次 + 2 次重试） */
+  attempts?: number;
+  /** 单次超时，默认 8000ms */
+  timeoutMs?: number;
+  /** 每次重试前的等待，默认 [0, 400, 1200] */
+  backoffMs?: number[];
+  /** 每发起一次尝试回调一次，用于界面提示「第 n/m 次」 */
+  onAttempt?: (attempt: number, total: number) => void;
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** 估算 UTF-8 字节数：测速要按真实字节算带宽，不能直接用字符数 */
 function utf8ByteLength(text: string): number {
@@ -358,16 +372,32 @@ export class API {
    * 超时之所以值得重试，是因为第一次已经把 DNS/TCP/TLS 都建立起来了，
    * 第二次在已热连接上跑，往往 1 秒内就返回 —— 这正是「用过一次之后就好了」的机制。
    */
-  async searchVideos(query: string): Promise<{ results: SearchResult[] }> {
+  async searchVideos(
+    query: string,
+    options: SearchOptions = {}
+  ): Promise<{ results: SearchResult[] }> {
     const url = `/api/search?q=${encodeURIComponent(query)}`;
-    try {
-      const response = await this._fetch(url, { timeoutMs: SEARCH_TIMEOUT_MS });
-      return response.json();
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.kind !== "timeout") throw error;
-      const response = await this._fetch(url, { timeoutMs: SEARCH_RETRY_TIMEOUT_MS });
-      return response.json();
+    const attempts = Math.max(1, options.attempts ?? SEARCH_ATTEMPTS);
+    const timeoutMs = options.timeoutMs ?? SEARCH_TIMEOUT_MS;
+    const backoff = options.backoffMs ?? SEARCH_BACKOFF_MS;
+
+    let lastError: unknown;
+    for (let i = 0; i < attempts; i += 1) {
+      if (i > 0) {
+        const wait = backoff[Math.min(i, backoff.length - 1)] ?? 0;
+        if (wait > 0) await sleep(wait);
+      }
+      options.onAttempt?.(i + 1, attempts);
+      try {
+        const response = await this._fetch(url, { timeoutMs });
+        return response.json();
+      } catch (error) {
+        // 只有超时值得再试一次：连接已建立，下一轮通常 1~2 秒就回来
+        if (!(error instanceof ApiError) || error.kind !== "timeout") throw error;
+        lastError = error;
+      }
     }
+    throw lastError ?? new ApiError("TIMEOUT", "timeout");
   }
 
   async searchVideo(query: string, resourceId: string, signal?: AbortSignal): Promise<{ results: SearchResult[] }> {

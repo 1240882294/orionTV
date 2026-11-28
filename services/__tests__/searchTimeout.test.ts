@@ -1,6 +1,11 @@
 import { API, ApiError } from "../api";
 import { api } from "../api";
-import { fetchDoubanSeeds } from "../searchSuggestIndex";
+import {
+  ensureSuggestIndex,
+  fetchDoubanSeeds,
+  hotTitles,
+  warmRemoteSeeds,
+} from "../searchSuggestIndex";
 
 // api / 词库都间接用到存储，jest 下给个内存版本
 jest.mock("@react-native-async-storage/async-storage", () => ({
@@ -71,7 +76,7 @@ describe("聚合搜索的超时与重试", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("搜索超时比普通请求宽松（否则弱网首包必挂）", async () => {
+  it("单次超时 8 秒，靠最多 3 次尝试兜底，总时长可控", async () => {
     const client = new API("http://example.com");
     const timeouts: number[] = [];
     jest
@@ -83,7 +88,66 @@ describe("聚合搜索的超时与重试", () => {
 
     await client.searchVideos("仙逆");
 
-    expect(timeouts[0]).toBeGreaterThan(8000);
+    expect(timeouts[0]).toBe(8000);
+  });
+
+  it("连续 3 次超时才报错，且每次尝试都会通知界面", async () => {
+    const client = new API("http://example.com");
+    const fetchSpy = jest
+      .spyOn(client as any, "performFetch")
+      .mockRejectedValue(new ApiError("TIMEOUT", "timeout"));
+    const attempts: number[] = [];
+
+    await expect(
+      client.searchVideos("仙逆", {
+        backoffMs: [0, 0, 0],
+        onAttempt: (n) => attempts.push(n),
+      })
+    ).rejects.toBeInstanceOf(ApiError);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    expect(attempts).toEqual([1, 2, 3]);
+  });
+
+  it("第 2 次就成功时不再打第 3 次", async () => {
+    const client = new API("http://example.com");
+    const fetchSpy = jest
+      .spyOn(client as any, "performFetch")
+      .mockRejectedValueOnce(new ApiError("TIMEOUT", "timeout"))
+      .mockResolvedValueOnce(okResponse([{ id: 1, title: "仙逆" }]));
+
+    const res = await client.searchVideos("仙逆", { backoffMs: [0, 0, 0] });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(res.results).toHaveLength(1);
+  });
+});
+
+describe("词库预热不再抢首搜带宽", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("打开搜索页只建本地词库，一个豆瓣请求都不发", async () => {
+    const spy = jest.spyOn(api, "getDoubanData").mockResolvedValue({ list: [] } as any);
+
+    await ensureSuggestIndex(true);
+
+    expect(spy).not.toHaveBeenCalled();
+    // 本地词库已经在，热门榜第一条来自内置种子
+    expect(hotTitles(1)[0]?.seed).toBe(true);
+  });
+
+  it("首搜成功后才补豆瓣榜单，重复调用只补一次", async () => {
+    const spy = jest
+      .spyOn(api, "getDoubanData")
+      .mockResolvedValue({ list: [{ title: "某片" }] } as any);
+
+    warmRemoteSeeds();
+    warmRemoteSeeds();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(spy).toHaveBeenCalledTimes(10);
   });
 });
 

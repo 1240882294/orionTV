@@ -36,8 +36,10 @@ import {
   hotTitles,
   rememberTitles,
   suggestTitles,
+  warmRemoteSeeds,
   SuggestEntry,
 } from "@/services/searchSuggestIndex";
+import { SearchHistoryManager } from "@/services/storage";
 import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('SearchScreen');
@@ -50,6 +52,10 @@ export default function SearchScreen() {
   const [suggestions, setSuggestions] = useState<SuggestEntry[]>([]);
   // 词库是分批到位的（先内置种子，再本地历史，最后网络榜单），这个版本号用来触发重新匹配
   const [suggestVersion, setSuggestVersion] = useState(0);
+  /** 电视端右侧「最近搜索」：来自 SearchHistoryManager，最多 6 条 */
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  /** 搜索重试提示：弱网下显示「第 2/3 次尝试」，否则界面看着像卡死 */
+  const [retryHint, setRetryHint] = useState<string | null>(null);
   /** 电视端：是否已进入「搜索结果」视图（进入后键盘区收起） */
   const [showResult, setShowResult] = useState(false);
   /** 实际发起搜索用的词，用于结果页标题 */
@@ -100,10 +106,30 @@ export default function SearchScreen() {
   }, [lastMessage, targetPage]);
 
   /**
+   * 最近搜索：读 SearchHistoryManager（本机或服务端，按设置里的存储方式）。
+   *
+   * 之前全项目没有任何地方写过搜索历史，所以这份列表一直是空的；
+   * 现在在 handleSearch 发起时写入，电视端右列才有东西可展示。
+   */
+  const refreshRecentSearches = useCallback(async () => {
+    try {
+      const list = await SearchHistoryManager.get();
+      setRecentSearches(Array.isArray(list) ? list.filter(Boolean).slice(0, 6) : []);
+    } catch {
+      /* 未登录 / 服务端不支持历史，就当没有 */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshRecentSearches();
+  }, [refreshRecentSearches]);
+
+  /**
    * 词库预热。
    *
    * 内置种子是分批灌的（600 条一批），每批结束都会回调一次，
    * 页面据此重算候选 —— 用户看到的是候选越输越多，而不是开场卡住不动。
+   * 这里**不拉豆瓣榜单**：那 10 个请求在弱网下会把首个搜索的带宽抢干。
    */
   useEffect(() => {
     let cancelled = false;
@@ -140,8 +166,8 @@ export default function SearchScreen() {
   }, [keyword, suggestVersion, deviceType, isTV]);
 
   const handleSearch = async (searchText?: string) => {
-    const term = typeof searchText === "string" ? searchText : keyword;
-    if (!term.trim()) {
+    const term = (typeof searchText === "string" ? searchText : keyword).trim();
+    if (!term) {
       Keyboard.dismiss();
       return;
     }
@@ -150,9 +176,21 @@ export default function SearchScreen() {
     setError(null);
     setShowResult(true);
     setSearchTerm(term);
+    setRetryHint(null);
+    // 记进搜索历史：电视端「最近搜索」直接读这份，顺手也让词库权重+1
+    void SearchHistoryManager.add(term)
+      .then(() => refreshRecentSearches())
+      .catch(() => undefined);
     const startedAt = Date.now();
     try {
-      const response = await api.searchVideos(term);
+      const response = await api.searchVideos(term, {
+        attempts: 3,
+        timeoutMs: 8000,
+        onAttempt: (attempt, total) => {
+          // 第一次不提示，避免正常搜索时闪一下文字
+          setRetryHint(attempt > 1 ? `网络较慢，正在第 ${attempt}/${total} 次尝试…` : null);
+        },
+      });
       const cost = Date.now() - startedAt;
       logger.info(`[SEARCH] "${term}" hit ${response.results.length} in ${cost}ms`);
       if (response.results.length > 0) {
@@ -162,6 +200,8 @@ export default function SearchScreen() {
           response.results.slice(0, 12).map((item) => item.title),
           1
         );
+        // 首搜成功了，带宽空出来了，这时再补豆瓣榜单（只补一次）
+        warmRemoteSeeds();
       } else {
         setResults([]);
         setError("没有找到相关内容");
@@ -172,11 +212,14 @@ export default function SearchScreen() {
       // 超时和「接口报错」是两回事：前者再点一次往往就过了，后者要查服务端
       const isTimeout = err instanceof ApiError && err.kind === "timeout";
       setError(
-        isTimeout ? "网络较慢，搜索超时了。稍等片刻再点一次，或换个关键词。" : "搜索失败，请稍后重试。"
+        isTimeout
+          ? "网络较慢，连续 3 次都没搜到结果。点「重试一次」再试，或换个关键词。"
+          : "搜索失败，请稍后重试。"
       );
       logger.info(`[SEARCH] "${term}" failed after ${cost}ms:`, err);
     } finally {
       setLoading(false);
+      setRetryHint(null);
     }
   };
 
@@ -237,21 +280,22 @@ export default function SearchScreen() {
       setShowResult(false);
       setResults([]);
       setError(null);
-      setKeyword("");
+      // 保留刚才搜的词：返回后能直接改一个字再搜，不用从头打
+      setKeyword(searchTerm);
       setSearchTerm("");
       return true;
     });
     return () => sub.remove();
-  }, [isTV, showResult]);
+  }, [isTV, showResult, searchTerm]);
 
-  /** 从结果页回到键盘 */
+  /** 从结果页回到键盘（保留关键词） */
   const handleBackToKeyboard = useCallback(() => {
     setShowResult(false);
     setResults([]);
     setError(null);
-    setKeyword("");
+    setKeyword(searchTerm);
     setSearchTerm("");
-  }, []);
+  }, [searchTerm]);
 
   /**
    * 关掉系统输入法弹窗。
@@ -373,10 +417,23 @@ export default function SearchScreen() {
       )}
 
       {loading ? (
-        <VideoLoadingAnimation showProgressBar={false} />
+        <View style={[{ flex: 1 }]}>
+          <VideoLoadingAnimation showProgressBar={false} />
+          {retryHint ? (
+            <ThemedText style={[dynamicStyles.tvEmptyHint, { marginBottom: 24 }]}>
+              {retryHint}
+            </ThemedText>
+          ) : null}
+        </View>
       ) : error ? (
         <View style={[commonStyles.center, { flex: 1 }]}>
           <ThemedText style={dynamicStyles.errorText}>{error}</ThemedText>
+          <StyledButton
+            text="重试一次"
+            variant="primary"
+            style={{ marginTop: 18 }}
+            onPress={() => void handleSearch(searchTerm)}
+          />
         </View>
       ) : (
         <CustomScrollView
@@ -417,13 +474,30 @@ export default function SearchScreen() {
       </View>
 
       {loading ? (
-        <VideoLoadingAnimation showProgressBar={false} />
+        <View style={[{ flex: 1 }]}>
+          <VideoLoadingAnimation showProgressBar={false} />
+          {retryHint ? (
+            <ThemedText style={dynamicStyles.tvEmptyHint}>{retryHint}</ThemedText>
+          ) : null}
+        </View>
       ) : error ? (
         <View style={[commonStyles.center, { flex: 1 }]}>
           <ThemedText style={dynamicStyles.errorText}>{error}</ThemedText>
           <ThemedText style={dynamicStyles.tvEmptyHint}>
             换个说法再试，或者只输首字母（如 psjy 找「破事精英」）
           </ThemedText>
+          {/* 原地重试：不用退回键盘重新输入，搜的就是刚才那个词 */}
+          <Pressable
+            focusable
+            onPress={() => void handleSearch(searchTerm)}
+            {...({ hasTVPreferredFocus: true } as any)}
+            style={({ focused }: { focused?: boolean }) => [
+              dynamicStyles.tvRetryButton,
+              focused && dynamicStyles.tvRetryButtonFocused,
+            ]}
+          >
+            <ThemedText style={dynamicStyles.tvRetryText}>重试一次</ThemedText>
+          </Pressable>
         </View>
       ) : (
         <CustomScrollView
@@ -435,6 +509,23 @@ export default function SearchScreen() {
         />
       )}
     </>
+  );
+
+  /** 电视端候选 / 热门 / 最近共用同一套行样式，点一下直接搜 */
+  const renderTVSuggestRow = (title: string) => (
+    <Pressable
+      key={title}
+      focusable
+      onPress={() => handlePickSuggestion(title)}
+      style={({ focused }: { focused?: boolean }) => [
+        dynamicStyles.tvSuggestRow,
+        focused && dynamicStyles.tvSuggestRowFocused,
+      ]}
+    >
+      <ThemedText style={dynamicStyles.tvSuggestText} numberOfLines={1}>
+        {title}
+      </ThemedText>
+    </Pressable>
   );
 
   const renderTVKeyboard = () => (
@@ -494,40 +585,45 @@ export default function SearchScreen() {
         </View>
 
         <View style={dynamicStyles.tvSuggestCol}>
-          <ThemedText style={dynamicStyles.tvSuggestHead}>
-            {keyword.trim()
-              ? suggestions.length > 0
-                ? "猜你想搜"
-                : "没有匹配的剧名"
-              : "热门搜索"}
-          </ThemedText>
+          {keyword.trim() ? (
+            <>
+              <ThemedText style={dynamicStyles.tvSuggestHead}>
+                {suggestions.length > 0 ? "猜你想搜" : "没有匹配的剧名"}
+              </ThemedText>
 
-          <View style={dynamicStyles.tvSuggestList}>
-            {suggestions.map((item) => (
-              <Pressable
-                key={item.title}
-                focusable
-                onPress={() => handlePickSuggestion(item.title)}
-                style={({ focused }: { focused?: boolean }) => [
-                  dynamicStyles.tvSuggestRow,
-                  focused && dynamicStyles.tvSuggestRowFocused,
-                ]}
-              >
-                <ThemedText style={dynamicStyles.tvSuggestText} numberOfLines={1}>
-                  {item.title}
-                </ThemedText>
-              </Pressable>
-            ))}
+              <View style={dynamicStyles.tvSuggestList}>
+                {suggestions.map((item) => renderTVSuggestRow(item.title))}
 
-            {keyword.trim() && suggestions.length === 0 ? (
-              <View style={dynamicStyles.tvEmptyBox}>
-                <ThemedText style={dynamicStyles.tvEmptyText}>
-                  这个词不在离线词库里。可以点右上角键盘图标用系统输入法打中文，
-                  或者用手机扫码输入。
-                </ThemedText>
+                {suggestions.length === 0 ? (
+                  <View style={dynamicStyles.tvEmptyBox}>
+                    <ThemedText style={dynamicStyles.tvEmptyText}>
+                      这个词不在离线词库里。可以点右上角键盘图标用系统输入法打中文，
+                      或者用手机扫码输入。
+                    </ThemedText>
+                  </View>
+                ) : null}
               </View>
-            ) : null}
-          </View>
+            </>
+          ) : (
+            /* 没输入时并排两块：左边热门（内置榜单），右边最近搜索（自己的历史） */
+            <View style={dynamicStyles.tvSuggestColumns}>
+              <View style={dynamicStyles.tvSuggestColumn}>
+                <ThemedText style={dynamicStyles.tvSuggestHead}>热门搜索</ThemedText>
+                <View style={dynamicStyles.tvSuggestList}>
+                  {suggestions.map((item) => renderTVSuggestRow(item.title))}
+                </View>
+              </View>
+
+              {recentSearches.length > 0 ? (
+                <View style={dynamicStyles.tvSuggestColumn}>
+                  <ThemedText style={dynamicStyles.tvSuggestHead}>最近搜索</ThemedText>
+                  <View style={dynamicStyles.tvSuggestList}>
+                    {recentSearches.map((title) => renderTVSuggestRow(title))}
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          )}
         </View>
       </View>
 
@@ -912,6 +1008,16 @@ const createResponsiveStyles = (deviceType: string, spacing: number, screenHeigh
     tvSuggestList: {
       flex: 1,
     },
+    /* 热门搜索 + 最近搜索并排两列 */
+    tvSuggestColumns: {
+      flex: 1,
+      flexDirection: "row",
+      gap: 26,
+    },
+    tvSuggestColumn: {
+      flex: 1,
+      minWidth: 0,
+    },
     tvSuggestRow: {
       height: tvRowHeight,
       justifyContent: "center",
@@ -980,6 +1086,26 @@ const createResponsiveStyles = (deviceType: string, spacing: number, screenHeigh
       fontSize: 18,
       color: "rgba(255,255,255,0.4)",
       textAlign: "center",
+    },
+    /* 错误页「重试一次」：原地重搜，不用退回键盘重新输 */
+    tvRetryButton: {
+      marginTop: 26,
+      height: 62,
+      paddingHorizontal: 34,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: "rgba(255,255,255,0.16)",
+      backgroundColor: "rgba(255,255,255,0.08)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    tvRetryButtonFocused: {
+      borderColor: "#ffffff",
+      backgroundColor: "rgba(77,159,255,0.28)",
+    },
+    tvRetryText: {
+      fontSize: 22,
+      color: "#ffffff",
     },
   });
 };

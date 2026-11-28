@@ -179,13 +179,6 @@ function addOwnTitles(titles: string[], weight: number): boolean {
 
 /** 豆瓣榜单同时最多打几个：原来 10 个并发，弱网电视上会把首搜的带宽抢干 */
 const DOUBAN_CONCURRENCY = 2;
-/**
- * 打开搜索页后先等一会儿再拉榜单。
- *
- * 用户打完拼音点联想词通常就在这几秒内，等这批后台请求发出去，
- * 首搜就会被挤到只剩几百字节每秒的缝里，8 秒根本等不到首包。
- */
-const REMOTE_SEED_DELAY_MS = 3000;
 
 /** 豆瓣榜单当种子：冷启动后联网补充当下新剧 */
 export async function fetchDoubanSeeds(): Promise<string[]> {
@@ -308,8 +301,6 @@ async function loadLocalSeeds(): Promise<void> {
 
 async function loadRemoteSeeds(): Promise<void> {
   try {
-    // 让首搜先跑：这几秒正是用户打拼音、点候选的窗口
-    await new Promise((resolve) => setTimeout(resolve, REMOTE_SEED_DELAY_MS));
     const titles = await fetchDoubanSeeds();
     if (titles.length && addOwnTitles(titles, 1)) schedulePersist();
   } catch (e) {
@@ -317,11 +308,37 @@ async function loadRemoteSeeds(): Promise<void> {
   }
 }
 
+/** 豆瓣榜单只补一次：成功与否都记下来，避免每次搜索都重打 */
+let remoteSeedsTask: Promise<void> | null = null;
+let remoteSeedsDone = false;
+
 /**
- * 确保词库已就绪。第一次调用会灌种子 + 读本地 + 拉榜单；
- * 之后 6 小时内直接复用内存，不再打网络。
+ * 补拉豆瓣榜单（后台）。
+ *
+ * 只在**第一次搜索成功之后**调用，打开搜索页时不碰网络 ——
+ * 弱网下这 10 个请求会把首个搜索的带宽抢干，用户看到的就是「点了没反应」。
  */
-export function ensureSuggestIndex(force = false, onProgress?: () => void): Promise<void> {
+export function warmRemoteSeeds(): void {
+  if (remoteSeedsDone || remoteSeedsTask) return;
+  remoteSeedsTask = loadRemoteSeeds()
+    .catch(() => undefined)
+    .finally(() => {
+      remoteSeedsDone = true;
+      remoteSeedsTask = null;
+    });
+}
+
+/**
+ * 确保词库已就绪。第一次调用会灌种子 + 读本地，之后 6 小时内复用内存。
+ *
+ * `remote=false`（默认）时**不拉豆瓣**：本地词库（6908 条内置 + 用户历史）
+ * 已经够联想，网络留给真正的搜索。需要补新剧时由搜索成功后调 warmRemoteSeeds()。
+ */
+export function ensureSuggestIndex(
+  force = false,
+  onProgress?: () => void,
+  options: { remote?: boolean } = {}
+): Promise<void> {
   if (loadTask) return loadTask;
   if (!force && loadedAt && Date.now() - loadedAt < SEED_TTL_MS) return Promise.resolve();
 
@@ -331,8 +348,8 @@ export function ensureSuggestIndex(force = false, onProgress?: () => void): Prom
     await loadLocalEntries();
     await loadLocalSeeds();
     loadedAt = Date.now();
-    // 豆瓣种子单独放最后，慢也不阻塞前面的本地词
-    await loadRemoteSeeds();
+    // 豆瓣种子默认不在搜索页拉，见 warmRemoteSeeds 的说明
+    if (options.remote) await loadRemoteSeeds();
   })()
     .catch((e) => logger.warn("ensure suggest index failed", e))
     .finally(() => {
@@ -414,10 +431,20 @@ export function suggestTitles(query: string, limit = 8): SuggestEntry[] {
 
 /**
  * 还没输入时的「热门推荐」。
- * 权重相同时按插入顺序（内置表本身就是按豆瓣榜单热度排的）。
+ *
+ * 排序先看权重（用户搜过/看过的排前面），同权重时**内置种子优先**：
+ * 内置表本身就是按豆瓣热度排好的，稳定可预期；
+ * 豆瓣实时榜单是后补的，它的 updatedAt 永远最新，若按更新时间排会整批顶到最前面，
+ * 于是每次打开搜索页「热门搜索」都不一样 —— 那不是榜单，是随机的。
  */
 export function hotTitles(limit = 6): SuggestEntry[] {
-  if (!hotCache) hotCache = sortEntries([...entries]);
+  if (!hotCache) {
+    hotCache = [...entries].sort((a, b) => {
+      if (b.hits !== a.hits) return b.hits - a.hits;
+      if (a.seed !== b.seed) return a.seed ? -1 : 1;
+      return b.updatedAt - a.updatedAt;
+    });
+  }
   return hotCache.slice(0, limit);
 }
 

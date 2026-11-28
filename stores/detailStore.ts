@@ -149,7 +149,8 @@ const useDetailStore = create<DetailState>((set, get) => ({
           logger.info(`[PERF] FALLBACK search (all sources) START - query: "${q}"`);
           
           try {
-            const { results: allResults } = await api.searchVideos(q);
+            // 降级搜索是用户正在等的：只给 2 次尝试，别把详情页拖到 26 秒
+            const { results: allResults } = await api.searchVideos(q, { attempts: 2 });
             const fallbackEnd = performance.now();
             logger.info(`[PERF] FALLBACK search END - took ${(fallbackEnd - fallbackStart).toFixed(2)}ms, total results: ${allResults.length}`);
             
@@ -182,7 +183,8 @@ const useDetailStore = create<DetailState>((set, get) => ({
           logger.info(`[PERF] API searchVideos (background) START`);
           
           try {
-            const { results: allResults } = await api.searchVideos(q);
+            // 后台补全：主线已经能播了，失败无所谓，别重试占带宽
+            const { results: allResults } = await api.searchVideos(q, { attempts: 1 });
             
             const searchAllEnd = performance.now();
             logger.info(`[PERF] API searchVideos (background) END - took ${(searchAllEnd - searchAllStart).toFixed(2)}ms, results: ${allResults.length}`);

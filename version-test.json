@@ -1,35 +1,35 @@
 {
-  "version": "2.1.5-test.1",
-  "versionCode": 2116,
+  "version": "2.1.6-test.1",
+  "versionCode": 2117,
   "releasedAt": "2026-11-28",
-  "notes": "测试通道：电视 3.0.12-test.1（3019）、手机 2.1.5-test.1（2116）。与正式通道指向同一批包。",
+  "notes": "测试通道：电视 3.0.13-test.1（3020）、手机 2.1.6-test.1（2117）。与正式通道指向同一批包。",
   "channels": {
     "tv": {
-      "version": "3.0.12-test.1",
-      "versionCode": 3019,
+      "version": "3.0.13-test.1",
+      "versionCode": 3020,
       "releasedAt": "2026-11-28",
       "abi": "armeabi-v7a",
-      "size": 21591987,
-      "md5": "5ec82a5fbe6901715ef3828c72f1e4e4",
-      "notes": "修复联想搜索偶尔「搜索失败」：搜索超时 8s→12s 并对超时重试一次，豆瓣榜单预热并发 10→2 且延后 3 秒，不再抢占首个搜索请求。含 3.0.11 的全量选线、记录误删、失败线路排除等修复。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.12-test.1/OrionTV-TV-3.0.12-test.1-armeabi-v7a.apk",
+      "size": 21594955,
+      "md5": "9d2efdbdaf2e788f6d16a5c81686186f",
+      "notes": "打开搜索页只建本地词库、不发豆瓣请求，豆瓣榜单改为首搜成功后补一次；搜索失败自动重试 3 次并显示第几次，失败页可「重试一次」原地重搜，返回键盘保留关键词；右侧新增「最近搜索」，与「热门搜索」并排两列。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.13-test.1/OrionTV-TV-3.0.13-test.1-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.12-test.1/OrionTV-TV-3.0.12-test.1-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.12-test.1/OrionTV-TV-3.0.12-test.1-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.13-test.1/OrionTV-TV-3.0.13-test.1-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.13-test.1/OrionTV-TV-3.0.13-test.1-armeabi-v7a.apk"
       ]
     },
     "phone": {
-      "version": "2.1.5-test.1",
-      "versionCode": 2116,
+      "version": "2.1.6-test.1",
+      "versionCode": 2117,
       "releasedAt": "2026-11-28",
       "abi": "arm64-v8a",
-      "size": 26796675,
-      "md5": "e6437e6b558ecdcffcbf810ca61806b6",
-      "notes": "修复从最近播放进入后画面出来了却停在暂停、点播放报「操作失败」：先起播再回进度、播放器只挂载一次、地址变化同步清播放状态、未加载完提示「正在加载」。搜索超时同样加固。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk",
+      "size": 26799287,
+      "md5": "fc6c514767bd5b7aa19e68e1e62ddfc3",
+      "notes": "搜索与电视端同步：不抢带宽、超时自动重试 3 次、失败页原地重搜、搜索历史落盘。含 2.1.5 的起播修复：先起播再回进度，未加载完点播放提示「正在加载」而非「操作失败」。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.6-test.1/OrionTV-Phone-2.1.6-test.1-arm64-v8a.apk"
       ]
     }
   }

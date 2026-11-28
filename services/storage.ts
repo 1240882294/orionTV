@@ -434,38 +434,64 @@ export class SearchHistoryManager {
     return storageConfig.getStorageType();
   }
 
+  /** 本地那份历史：不管服务端模式，都留一份，未登录/服务端不支持时兜底 */
+  private static async getLocal(): Promise<string[]> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.SEARCH_HISTORY);
+      const parsed = data ? JSON.parse(data) : [];
+      return Array.isArray(parsed) ? parsed.filter((k) => typeof k === "string") : [];
+    } catch (error) {
+      logger.info("Failed to get local search history:", error);
+      return [];
+    }
+  }
+
+  private static async setLocal(list: string[]): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.SEARCH_HISTORY, JSON.stringify(list));
+    } catch (error) {
+      logger.info("Failed to save local search history:", error);
+    }
+  }
+
   static async get(): Promise<string[]> {
     if (this.getStorageType() === "localstorage") {
-      try {
-        const data = await AsyncStorage.getItem(STORAGE_KEYS.SEARCH_HISTORY);
-        return data ? JSON.parse(data) : [];
-      } catch (error) {
-        logger.info("Failed to get local search history:", error);
-        return [];
-      }
+      return this.getLocal();
     }
-    return api.getSearchHistory();
+    // 服务端模式：拿到就用，拿不到（未登录 / 接口不支持）退回本地那份
+    try {
+      const remote = await api.getSearchHistory();
+      if (Array.isArray(remote) && remote.length > 0) return remote;
+    } catch (error) {
+      logger.info("Failed to get remote search history, fallback to local:", error);
+    }
+    return this.getLocal();
   }
 
   static async add(keyword: string): Promise<void> {
     const trimmed = keyword.trim();
     if (!trimmed) return;
 
-    if (this.getStorageType() === "localstorage") {
-      let history = await this.get();
-      history = [trimmed, ...history.filter((k) => k !== trimmed)].slice(0, 20); // Keep latest 20
-      await AsyncStorage.setItem(STORAGE_KEYS.SEARCH_HISTORY, JSON.stringify(history));
-      return;
+    // 先写本地：电视端「最近搜索」不依赖登录状态
+    const local = await this.getLocal();
+    await this.setLocal([trimmed, ...local.filter((k) => k !== trimmed)].slice(0, 20));
+
+    if (this.getStorageType() === "localstorage") return;
+    try {
+      await api.addSearchHistory(trimmed);
+    } catch (error) {
+      logger.info("Failed to add remote search history:", error);
     }
-    await api.addSearchHistory(trimmed);
   }
 
   static async clear(): Promise<void> {
-    if (this.getStorageType() === "localstorage") {
-      await AsyncStorage.removeItem(STORAGE_KEYS.SEARCH_HISTORY);
-      return;
+    await AsyncStorage.removeItem(STORAGE_KEYS.SEARCH_HISTORY).catch(() => undefined);
+    if (this.getStorageType() === "localstorage") return;
+    try {
+      await api.deleteSearchHistory();
+    } catch (error) {
+      logger.info("Failed to clear remote search history:", error);
     }
-    await api.deleteSearchHistory();
   }
 }
 
