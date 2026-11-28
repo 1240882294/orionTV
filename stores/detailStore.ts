@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { SearchResult, api } from "@/services/api";
 import { getResolutionFromM3U8 } from "@/services/m3u8";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { FavoriteManager, PlayRecordManager } from "@/services/storage";
+import { FavoriteManager } from "@/services/storage";
 import Logger from "@/utils/Logger";
 
 const logger = Logger.withTag('DetailStore');
@@ -315,16 +315,14 @@ const useDetailStore = create<DetailState>((set, get) => ({
   },
 
   setDetail: async (detail) => {
-    const prev = get().detail;
     set({ detail });
     const { source, id } = detail;
 
-    // 同一部影片切换线路后，删掉旧线路留下的播放记录，最近播放只保留最新一条
-    if (prev && prev.source !== source && (prev.title || "").trim() === (detail.title || "").trim()) {
-      PlayRecordManager.removeDuplicatesByTitle(detail.title, `${source}+${id}`, detail.year).catch(
-        (error) => logger.debug("Failed to prune duplicate play records:", error)
-      );
-    }
+    // 这里绝对不能顺手删「同片的其他线路记录」。
+    // 切过去的新线路很可能一帧都没播出来（坏线路自动换源的场景就是如此），
+    // 它自己的记录还不存在，此时删旧的等于把这部剧从「最近观看」里整个抹掉。
+    // 真正的清理交给 PlayRecordManager.save：新记录写入时在同一把写锁里
+    // 清掉同片旧线路的 key（v1.4.1 已实现），时机正确也不会误删。
 
     const isFavorited = await FavoriteManager.isFavorited(source, id.toString());
     set({ isFavorited });

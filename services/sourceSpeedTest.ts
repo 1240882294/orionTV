@@ -219,10 +219,15 @@ export async function testSourcesSpeed(
       const target = queue.shift();
       if (!target) break;
       const result = await testSourceSpeed(target, keyword, controller.signal);
-      if (stopped) break;
+      // 整体超时导致的中断：结果是被 abort 打断的，不能当成「这条线路不可用」入库
+      if (controller.signal.aborted && !result.ok) break;
+      // 提前结束只影响「还没开始测的」：已经测完的必须入库。
+      // 之前这里先 break 再赋值，并发中已完成的结果会被整批丢掉，
+      // 表现就是「面板只有一条线路有速度、其余一直未测速」。
       results[target.source] = result;
       done += 1;
       onResult?.(result, done, total);
+      if (stopped) break;
       if (shouldStop?.(results, done, total)) {
         stopped = true;
         break;

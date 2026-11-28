@@ -40,7 +40,14 @@ import usePlayerStore, { selectCurrentEpisode } from "@/stores/playerStore";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { useVideoHandlers } from "@/hooks/useVideoHandlers";
 import { useAdFreePlayback } from "@/hooks/useAdFreePlayback";
-import { testSourcesSpeed, speedOf, getCachedSpeeds, setCachedSpeeds } from "@/services/sourceSpeedTest";
+import {
+  testSourcesSpeed,
+  speedOf,
+  getCachedSpeeds,
+  setCachedSpeeds,
+  type SourceSpeedResult,
+} from "@/services/sourceSpeedTest";
+import { filterCandidates, pickBestSource, splitByCacheCoverage } from "@/services/sourceSelection";
 import Logger from "@/utils/Logger";
 
 const logger = Logger.withTag("PlayScreen");
@@ -51,9 +58,7 @@ const SWIPE_FULL_WIDTH_MS = 5 * 60 * 1000;
 // 双击判定窗口：两次点击间隔小于它算双击（暂停/播放），否则算单击（显隐控件）
 const DOUBLE_TAP_MS = 260;
 
-/** 播放前测速的整体等待上限：再慢也要先播起来 */
-const PREPARE_TIMEOUT_MS = 8000;
-/** 用户选的线路已经够快时提前结束测速 */
+/** 当前线路已经够快时提前结束测速的阈值 */
 const GOOD_ENOUGH_BPS = 1024 * 1024;
 
 /**
@@ -66,8 +71,13 @@ const GOOD_ENOUGH_BPS = 1024 * 1024;
 const FIRST_FRAME_TIMEOUT_MS = 15000;
 /** 最多自动重选几次，防止无限换源 */
 const MAX_AUTO_RECOVER = 2;
-/** 剧集数据初始化的总闸：单条 m3u8 探测有 4 秒超时，这里兜整体 */
-const INIT_TIMEOUT_MS = 12000;
+/**
+ * 准备阶段补测的总闸。
+ * 只作用于「缓存没覆盖到、需要补测」的那部分线路，不再用来截断 init。
+ */
+const RETEST_TIMEOUT_MS = 8000;
+/** 至少测够几条，才允许因为「当前线路已经够快」提前结束 */
+const MIN_TESTED_BEFORE_STOP = 3;
 
 // 优化的加载动画组件
 const LoadingContainer = memo(
@@ -151,8 +161,11 @@ export default function PlayScreen() {
   // 首帧看门狗：出不了画面就重选线路
   const [recoverNonce, setRecoverNonce] = useState(0);
   const recoverCountRef = useRef(0);
-  /** 上一次判定为「无响应」的线路，重选时排除掉，别又选中它 */
-  const excludedSourceRef = useRef<string | null>(null);
+  /**
+   * 判定为「无响应」的线路集合，重选时全部排除。
+   * 用集合而不是单个值：第二、三轮重选时，第一轮失败的那条不能又被挑回来。
+   */
+  const excludedSourcesRef = useRef<Set<string>>(new Set());
 
   // 去广告：先清洗播放列表，再交给播放器；失败/本地列表播不了会自动回退原始地址
   const adFree = useAdFreePlayback(currentEpisode?.url);
@@ -397,33 +410,35 @@ export default function PlayScreen() {
       }
 
       // 1. 确保剧集数据可用
+      //    必须等 init 完整跑完（拿到全部线路）再测速：单个请求有 8 秒上限、
+      //    分辨率探测 4 秒且并行，不会无限挂住。3.0.9-test.1 加过 12 秒总闸，
+      //    结果「继续观看」直进播放时手上常常只有 1 条线路，测速与选优形同虚设。
       let state = useDetailStore.getState();
-      const needInit = !state.detail || state.detail.title !== title || state.searchResults.length === 0;
+      // allSourcesLoaded=false 说明上一次 init 被中途 abort（详情页点播放时会 abort），
+      // 这时 searchResults 里可能只躺着 1 条，绝不能当成「已经有线路了」直接测速。
+      const needInit =
+        !state.detail ||
+        state.detail.title !== title ||
+        state.searchResults.length === 0 ||
+        !state.allSourcesLoaded;
       if (needInit) {
         setPrepareLabel("正在获取线路…");
-        // 初始化里要逐条探测分辨率，单条已有 4 秒超时，这里再加一道总闸：
-        // 最多等 12 秒，拿不到就用手上已有的数据（大概率 searchResults 已经填好了）往下走。
-        const finished = await Promise.race([
-          state.init(title, source, id).then(() => true),
-          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), INIT_TIMEOUT_MS)),
-        ]);
+        await state.init(title, source, id);
         if (cancelled) return;
-        if (!finished) {
-          logger.warn("[PREP] Detail init timed out, continue with whatever we have");
-        }
         state = useDetailStore.getState();
+        logger.info(`[PREP] Detail ready with ${state.searchResults.length} candidate sources`);
       }
 
-      // 重选线路时把上次判定「出不了画面」的那条排除掉，别又挑回它
-      const excluded = excludedSourceRef.current;
+      // 重选线路时把所有已判定「出不了画面」的线路排除掉，别又挑回去
+      const excluded = excludedSourcesRef.current;
       const allCandidates =
         state.searchResults.length > 0 ? state.searchResults : state.detail ? [state.detail] : [];
-      const candidates =
-        excluded && allCandidates.length > 1
-          ? allCandidates.filter((item) => item.source !== excluded)
-          : allCandidates;
-      if (excluded && candidates.length < allCandidates.length) {
-        logger.info(`[PREP] Excluding unresponsive source: ${excluded}`);
+      const candidates = filterCandidates(allCandidates, excluded);
+      if (excluded.size > 0) {
+        logger.info(
+          `[PREP] Excluding unresponsive sources [${Array.from(excluded).join(", ")}], ` +
+            `candidates ${candidates.length}/${allCandidates.length}`
+        );
       }
 
       const preferredSource = sourceStr || state.detail?.source || source;
@@ -435,72 +450,66 @@ export default function PlayScreen() {
         return;
       }
 
-      // 2. 测速挑最优线路：只在本次打开视频时测一次，结果写入缓存供其他界面复用
-      //    重选时不信缓存 —— 上次就是照它选出来的那条，结果播不出来
-      const cached = excluded ? undefined : getCachedSpeeds(title);
-      if (cached) {
-        logger.info("[PREP] Reuse cached speed results");
-      } else {
-        setPrepareLabel("正在测速 · 正在挑选最优线路");
-        setPrepareTotal(candidates.length);
-        setPrepareDone(0);
-      }
+      // 2. 测速挑最优线路
+      //    缓存只按片名存，可能没覆盖全部线路（上次提前结束、或线路列表后来变多），
+      //    所以先复用命中的，再对缺的补测，最后合并参与排序 —— 不能拿残缓存当完整结果。
+      //    重选时完全不信缓存：上次就是照它选出来的那条，结果播不出来。
+      const cachedAll = excluded.size > 0 ? null : getCachedSpeeds(title);
+      const { hit: cachedSpeeds, missing } = splitByCacheCoverage(candidates, cachedAll);
 
-      const speeds =
-        cached ??
-        (await testSourcesSpeed(
-          candidates,
-          title,
-          (result, done) => {
-            if (cancelled) return;
-            setPrepareDone(done);
-            if (result.ok) {
-              const matched = candidates.find((item) => item.source === result.source);
-              setPrepareName(matched?.source_name || result.source);
-            }
-            // 增量写入缓存：竖屏信息面板一出现就能看到已测完的线路
-            setCachedSpeeds(title, { [result.source]: result }, true);
-          },
-          {
-            totalTimeoutMs: PREPARE_TIMEOUT_MS,
-            // 用户选的线路已经够快就不用等剩下的源，早点开播
-            shouldStop: (results) =>
-              !!preferredSource && speedOf(results[preferredSource]) >= GOOD_ENOUGH_BPS,
-          }
-        ));
+      if (missing.length > 0) {
+        setPrepareLabel(
+          cachedAll ? `正在测速 · 补测 ${missing.length} 条线路` : "正在测速 · 正在挑选最优线路"
+        );
+      } else {
+        setPrepareLabel("正在挑选最优线路");
+      }
+      setPrepareTotal(candidates.length);
+      setPrepareDone(candidates.length - missing.length);
+
+      const fresh: Record<string, SourceSpeedResult> =
+        missing.length > 0
+          ? await testSourcesSpeed(
+              missing,
+              title,
+              (result, done) => {
+                if (cancelled) return;
+                setPrepareDone(candidates.length - missing.length + done);
+                if (result.ok) {
+                  const matched = candidates.find((item) => item.source === result.source);
+                  setPrepareName(matched?.source_name || result.source);
+                }
+                // 增量写入缓存：竖屏信息面板一出现就能看到已测完的线路
+                setCachedSpeeds(title, { [result.source]: result }, true);
+              },
+              {
+                totalTimeoutMs: RETEST_TIMEOUT_MS,
+                // 当前线路够快、且已经测够几条才提前结束；已测完的结果不会被丢掉
+                shouldStop: (results, done, total) =>
+                  done >= Math.min(MIN_TESTED_BEFORE_STOP, total) &&
+                  !!preferredSource &&
+                  speedOf(results[preferredSource]) >= GOOD_ENOUGH_BPS,
+              }
+            )
+          : {};
       if (cancelled) return;
 
-      if (!cached) {
-        // 补齐没测到的源，避免缓存里缺少条目被当成「未测速」
-        setCachedSpeeds(title, speeds);
-      }
+      const speeds: Record<string, SourceSpeedResult> = { ...cachedSpeeds, ...fresh };
+      // merge=true：别把缓存里本次没参与测速的条目覆盖掉
+      setCachedSpeeds(title, speeds, true);
 
-      const ranked = candidates
-        .map((item) => ({ item, bps: speedOf(speeds[item.source]) }))
-        .filter((entry) => entry.bps > 0)
-        .sort((a, b) => b.bps - a.bps);
-
-      const preferred = candidates.find((item) => item.source === preferredSource);
-      const preferredBps = preferred ? speedOf(speeds[preferred.source]) : 0;
-
-      let chosen = preferred ?? candidates[0];
-      if (ranked.length > 0) {
-        const fastest = ranked[0];
-        // 用户明确选了线路，且速度不低于最快线路的一半，就尊重用户选择
-        const keepPreferred = !!preferred && preferredBps > 0 && preferredBps * 2 >= fastest.bps;
-        chosen = keepPreferred && preferred ? preferred : fastest.item;
-        if (chosen.source !== preferredSource) {
-          logger.info(
-            `[PREP] Switch to faster source: ${chosen.source_name} (${Math.round(
-              speedOf(speeds[chosen.source]) / 1024
-            )} KB/s)`
-          );
-        }
+      // 3. 挑最优：用户选的线路够快就尊重它，否则取最快的那条
+      const pick = pickBestSource(candidates, speeds, preferredSource);
+      const chosen = pick?.chosen ?? candidates[0];
+      if (pick?.switched) {
+        logger.info(
+          `[PREP] Switch to faster source: ${chosen.source_name} (${Math.round(pick.bps / 1024)} KB/s)`
+        );
       }
 
       setPrepareLabel("正在加载视频…");
 
-      // 3. 让 playerStore 使用选中的源
+      // 4. 让 playerStore 使用选中的源
       const current = useDetailStore.getState().detail;
       if (!current || current.source !== chosen.source) {
         await useDetailStore.getState().setDetail(chosen);
@@ -554,7 +563,8 @@ export default function PlayScreen() {
     const timer = setTimeout(() => {
       if (sawFrame) return;
       const currentSource = useDetailStore.getState().detail?.source ?? null;
-      excludedSourceRef.current = currentSource;
+      // 累积记下这条，后面任何一轮重选都不会再挑回它
+      if (currentSource) excludedSourcesRef.current.add(currentSource);
       recoverCountRef.current += 1;
       logger.warn(
         `[WATCHDOG] No frame in ${FIRST_FRAME_TIMEOUT_MS / 1000}s, re-select source ` +
