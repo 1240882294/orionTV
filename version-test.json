@@ -1,35 +1,35 @@
 {
-  "version": "3.0.11-test.1",
-  "versionCode": 2115,
+  "version": "2.1.5-test.1",
+  "versionCode": 2116,
   "releasedAt": "2026-11-28",
-  "notes": "测试通道：电视 3.0.11-test.1（3018）、手机 2.1.4-test.1（2115）。与正式通道指向同一批包。",
+  "notes": "测试通道：电视 3.0.12-test.1（3019）、手机 2.1.5-test.1（2116）。与正式通道指向同一批包。",
   "channels": {
     "tv": {
-      "version": "3.0.11-test.1",
-      "versionCode": 3018,
+      "version": "3.0.12-test.1",
+      "versionCode": 3019,
       "releasedAt": "2026-11-28",
       "abi": "armeabi-v7a",
-      "size": 21594237,
-      "md5": "24a0576c361819ae5ddfc83b623a2c5c",
-      "notes": "恢复全量选线与全量测速，线路弹窗不再只剩一条；换线不再误删「最近观看」；失败线路累积排除，15 秒无画面自动重测换源。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.11-test.1/OrionTV-TV-3.0.11-test.1-armeabi-v7a.apk",
+      "size": 21591987,
+      "md5": "5ec82a5fbe6901715ef3828c72f1e4e4",
+      "notes": "修复联想搜索偶尔「搜索失败」：搜索超时 8s→12s 并对超时重试一次，豆瓣榜单预热并发 10→2 且延后 3 秒，不再抢占首个搜索请求。含 3.0.11 的全量选线、记录误删、失败线路排除等修复。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.12-test.1/OrionTV-TV-3.0.12-test.1-armeabi-v7a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.11-test.1/OrionTV-TV-3.0.11-test.1-armeabi-v7a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.11-test.1/OrionTV-TV-3.0.11-test.1-armeabi-v7a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.12-test.1/OrionTV-TV-3.0.12-test.1-armeabi-v7a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/tv-v3.0.12-test.1/OrionTV-TV-3.0.12-test.1-armeabi-v7a.apk"
       ]
     },
     "phone": {
-      "version": "2.1.4-test.1",
-      "versionCode": 2115,
+      "version": "2.1.5-test.1",
+      "versionCode": 2116,
       "releasedAt": "2026-11-28",
       "abi": "arm64-v8a",
-      "size": 26798848,
-      "md5": "8796141ffee5b61bbf055a222e0f4654",
-      "notes": "恢复全量选线与全量测速，线路面板不再只剩一条；换线不再误删「最近观看」；失败线路累积排除，15 秒无画面自动重测换源。",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.4-test.1/OrionTV-Phone-2.1.4-test.1-arm64-v8a.apk",
+      "size": 26796675,
+      "md5": "e6437e6b558ecdcffcbf810ca61806b6",
+      "notes": "修复从最近播放进入后画面出来了却停在暂停、点播放报「操作失败」：先起播再回进度、播放器只挂载一次、地址变化同步清播放状态、未加载完提示「正在加载」。搜索超时同样加固。",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk",
       "mirrors": [
-        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.4-test.1/OrionTV-Phone-2.1.4-test.1-arm64-v8a.apk",
-        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.4-test.1/OrionTV-Phone-2.1.4-test.1-arm64-v8a.apk"
+        "https://gh-proxy.com/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk",
+        "https://ghfast.top/https://github.com/1240882294/orionTV/releases/download/phone-v2.1.5-test.1/OrionTV-Phone-2.1.5-test.1-arm64-v8a.apk"
       ]
     }
   }

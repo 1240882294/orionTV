@@ -13,5 +13,5 @@
 export type BuildChannel = "tv" | "phone";
 
 export const BUILD_CHANNEL: BuildChannel = "phone";
-export const BUILD_VERSION = "2.1.4-test.1";
-export const BUILD_VERSION_CODE = 2115;
+export const BUILD_VERSION = "2.1.5-test.1";
+export const BUILD_VERSION_CODE = 2116;
