@@ -37,9 +37,20 @@ const IDLE: AdFreePlaybackState = {
  */
 export function useAdFreePlayback(rawUrl?: string, waitBudgetMs = 2500) {
   const enabled = useSettingsStore((state) => state.adBlockEnabled);
-  const [state, setState] = useState<AdFreePlaybackState>({
-    ...IDLE,
-    url: rawUrl,
+  const [state, setState] = useState<AdFreePlaybackState>(() => {
+    /**
+     * 首帧就要决定「挂不挂播放器」。
+     *
+     * 以前这里无条件给出 url: rawUrl，于是播放器先用原始地址挂载一次，
+     * 紧接着下面的 effect 又把 url 清成 undefined —— 播放器被拆掉重挂。
+     * 这一拆一挂之间 store 里的 status 还是旧实例的，UI 显示「已加载但暂停」，
+     * 点播放打到尚未 load 的新实例上就抛「操作失败」。
+     * 需要清洗时直接从 resolving 起步，播放器只挂一次。
+     */
+    if (rawUrl && enabled && /\.m3u8(?:[?#]|$)/i.test(rawUrl)) {
+      return { ...IDLE, resolving: true };
+    }
+    return { ...IDLE, url: rawUrl };
   });
   const resultRef = useRef<AdBlockResolveResult | null>(null);
   const runIdRef = useRef(0);

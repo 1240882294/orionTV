@@ -177,8 +177,18 @@ function addOwnTitles(titles: string[], weight: number): boolean {
   return changed;
 }
 
+/** 豆瓣榜单同时最多打几个：原来 10 个并发，弱网电视上会把首搜的带宽抢干 */
+const DOUBAN_CONCURRENCY = 2;
+/**
+ * 打开搜索页后先等一会儿再拉榜单。
+ *
+ * 用户打完拼音点联想词通常就在这几秒内，等这批后台请求发出去，
+ * 首搜就会被挤到只剩几百字节每秒的缝里，8 秒根本等不到首包。
+ */
+const REMOTE_SEED_DELAY_MS = 3000;
+
 /** 豆瓣榜单当种子：冷启动后联网补充当下新剧 */
-async function fetchDoubanSeeds(): Promise<string[]> {
+export async function fetchDoubanSeeds(): Promise<string[]> {
   const jobs: { type: "movie" | "tv"; tag: string }[] = [
     { type: "tv", tag: "热门" },
     { type: "tv", tag: "国产剧" },
@@ -192,15 +202,18 @@ async function fetchDoubanSeeds(): Promise<string[]> {
     { type: "movie", tag: "动作" },
   ];
 
-  const results = await Promise.allSettled(
-    jobs.map((job) => api.getDoubanData(job.type, job.tag, 20, 0))
-  );
-
   const titles: string[] = [];
-  for (const r of results) {
-    if (r.status !== "fulfilled") continue;
-    for (const item of r.value?.list || []) {
-      if (item?.title) titles.push(item.title);
+  // 分批串行：每批最多 DOUBAN_CONCURRENCY 个在飞
+  for (let i = 0; i < jobs.length; i += DOUBAN_CONCURRENCY) {
+    const batch = jobs.slice(i, i + DOUBAN_CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map((job) => api.getDoubanData(job.type, job.tag, 20, 0))
+    );
+    for (const r of results) {
+      if (r.status !== "fulfilled") continue;
+      for (const item of r.value?.list || []) {
+        if (item?.title) titles.push(item.title);
+      }
     }
   }
   return titles;
@@ -295,6 +308,8 @@ async function loadLocalSeeds(): Promise<void> {
 
 async function loadRemoteSeeds(): Promise<void> {
   try {
+    // 让首搜先跑：这几秒正是用户打拼音、点候选的窗口
+    await new Promise((resolve) => setTimeout(resolve, REMOTE_SEED_DELAY_MS));
     const titles = await fetchDoubanSeeds();
     if (titles.length && addOwnTitles(titles, 1)) schedulePersist();
   } catch (e) {

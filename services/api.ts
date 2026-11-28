@@ -110,6 +110,18 @@ export const isAuthFailure = (error: unknown): boolean =>
 /** 默认超时：弱网电视盒子下 8 秒足够建立连接，再久也基本没救了 */
 const DEFAULT_TIMEOUT_MS = 8000;
 
+/**
+ * 聚合搜索的超时。
+ *
+ * 搜索页一打开就并发拉 10 个豆瓣榜单灌词库，电视盒子在 200~300 B/s 时，
+ * 建连 + 首包很容易超过 8 秒 —— 表现就是「点联想词直接搜索失败」，
+ * 而先用系统输入法搜过一次（那时预热已结束、连接已热）同一部片又能搜到。
+ * 这里对搜索单独放宽，超时后还会重试一次。
+ */
+const SEARCH_TIMEOUT_MS = 12000;
+/** 重试放宽到 10 秒：第二次连接已建立，正常情况下 1~2 秒就回来 */
+const SEARCH_RETRY_TIMEOUT_MS = 10000;
+
 /** 估算 UTF-8 字节数：测速要按真实字节算带宽，不能直接用字符数 */
 function utf8ByteLength(text: string): number {
   let bytes = 0;
@@ -335,10 +347,27 @@ export class API {
     return response.json();
   }
 
+  /**
+   * 聚合搜索（服务端并发查所有源再合并）。
+   *
+   * 只对「超时」重试一次，别的错误重试没意义：
+   * - network：断网，重试还是断；
+   * - unauthorized：401 由 _fetch 内部已经重登重试过；
+   * - server：4xx/5xx 是服务端自己的问题。
+   *
+   * 超时之所以值得重试，是因为第一次已经把 DNS/TCP/TLS 都建立起来了，
+   * 第二次在已热连接上跑，往往 1 秒内就返回 —— 这正是「用过一次之后就好了」的机制。
+   */
   async searchVideos(query: string): Promise<{ results: SearchResult[] }> {
     const url = `/api/search?q=${encodeURIComponent(query)}`;
-    const response = await this._fetch(url);
-    return response.json();
+    try {
+      const response = await this._fetch(url, { timeoutMs: SEARCH_TIMEOUT_MS });
+      return response.json();
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.kind !== "timeout") throw error;
+      const response = await this._fetch(url, { timeoutMs: SEARCH_RETRY_TIMEOUT_MS });
+      return response.json();
+    }
   }
 
   async searchVideo(query: string, resourceId: string, signal?: AbortSignal): Promise<{ results: SearchResult[] }> {

@@ -370,15 +370,24 @@ const usePlayerStore = create<PlayerState>((set, get) => ({
 
   togglePlayPause: async () => {
     const { status, videoRef } = get();
-    if (status?.isLoaded) {
-      try {
-        if (status.isPlaying) {
-          await videoRef?.current?.pauseAsync();
-        } else {
-          await videoRef?.current?.playAsync();
-        }
-      } catch (error) {
-        logger.debug("Failed to toggle play/pause:", error);
+    if (!status?.isLoaded) {
+      // 地址刚换、播放器还在 load：别静默吞掉，否则用户以为按键坏了
+      Toast.show({ type: "info", text1: "正在加载，请稍候" });
+      return;
+    }
+    try {
+      if (status.isPlaying) {
+        await videoRef?.current?.pauseAsync();
+      } else {
+        await videoRef?.current?.playAsync();
+      }
+    } catch (error) {
+      logger.debug("Failed to toggle play/pause:", error);
+      const message = String((error as any)?.message ?? error);
+      // expo-av 在实例尚未 load 时抛的就是这句；这是时序问题不是故障，别再报「操作失败」吓人
+      if (message.includes("not yet loaded") || message.includes("Cannot complete")) {
+        Toast.show({ type: "info", text1: "正在加载，请稍候" });
+      } else {
         Toast.show({ type: "error", text1: "操作失败" });
       }
     }

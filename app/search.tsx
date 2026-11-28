@@ -16,7 +16,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import VideoCard from "@/components/VideoCard";
 import VideoLoadingAnimation from "@/components/VideoLoadingAnimation";
-import { api, SearchResult } from "@/services/api";
+import { api, ApiError, SearchResult } from "@/services/api";
 import { Search, QrCode, Keyboard as KeyboardIcon, ArrowLeft, X } from "lucide-react-native";
 import { StyledButton } from "@/components/StyledButton";
 import { useRemoteControlStore } from "@/stores/remoteControlStore";
@@ -150,8 +150,11 @@ export default function SearchScreen() {
     setError(null);
     setShowResult(true);
     setSearchTerm(term);
+    const startedAt = Date.now();
     try {
       const response = await api.searchVideos(term);
+      const cost = Date.now() - startedAt;
+      logger.info(`[SEARCH] "${term}" hit ${response.results.length} in ${cost}ms`);
       if (response.results.length > 0) {
         setResults(response.results);
         // 搜到的标题回填词库，下次打首字母就能联想到
@@ -164,9 +167,14 @@ export default function SearchScreen() {
         setError("没有找到相关内容");
       }
     } catch (err) {
+      const cost = Date.now() - startedAt;
       setResults([]);
-      setError("搜索失败，请稍后重试。");
-      logger.info("Search failed:", err);
+      // 超时和「接口报错」是两回事：前者再点一次往往就过了，后者要查服务端
+      const isTimeout = err instanceof ApiError && err.kind === "timeout";
+      setError(
+        isTimeout ? "网络较慢，搜索超时了。稍等片刻再点一次，或换个关键词。" : "搜索失败，请稍后重试。"
+      );
+      logger.info(`[SEARCH] "${term}" failed after ${cost}ms:`, err);
     } finally {
       setLoading(false);
     }

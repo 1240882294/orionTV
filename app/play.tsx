@@ -171,6 +171,20 @@ export default function PlayScreen() {
   const adFree = useAdFreePlayback(currentEpisode?.url);
   const playUrl = adFree.url;
   const revertAdBlock = adFree.revertToOriginal;
+
+  /**
+   * 交给播放器的地址一变，Video 就会重挂载，store 里的 status 立刻作废。
+   *
+   * 不清的话：status 还是上一个实例的 isLoaded=true / isPlaying=false，
+   * - 控件显示「暂停」（假暂停，其实新实例还没 ready）；
+   * - 点播放跑到 togglePlayPause，对未 load 的新实例调 playAsync，
+   *   expo-av 抛「Video component has not yet loaded」→ Toast「操作失败」。
+   * 这就是「画面出来了、却是暂停、点播放报错」的直接原因。
+   */
+  useEffect(() => {
+    usePlayerStore.setState({ status: null, isLoading: true });
+  }, [playUrl]);
+
   // 保持引用稳定，避免每次渲染都重建 Video 的 props
   const handleBeforeError = useCallback(() => revertAdBlock(), [revertAdBlock]);
 

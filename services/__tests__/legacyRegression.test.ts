@@ -51,4 +51,23 @@ describe("历史 bug 回归", () => {
     expect(src).toContain("await state.init(title, source, id);");
     expect(src).toContain("const FIRST_FRAME_TIMEOUT_MS = 15000");
   });
+
+  it("播放地址变化时清空 status，避免「假暂停 + 操作失败」", () => {
+    const src = read("app/play.tsx");
+    const start = src.indexOf("const playUrl = adFree.url;");
+    expect(start).toBeGreaterThan(-1);
+    // 紧跟着必须有「地址变 → status 作废」的 effect，并且依赖 playUrl
+    const window = src.slice(start, start + 1200);
+    expect(window).toContain("usePlayerStore.setState({ status: null, isLoading: true })");
+    expect(window).toContain("[playUrl]");
+  });
+
+  it("起播先 play 再 seek，seek 不能挡住播放指令", () => {
+    const src = read("hooks/useVideoHandlers.ts");
+    const playAt = src.indexOf("await videoRef.current?.playAsync();");
+    const seekAt = src.indexOf("await videoRef.current?.setPositionAsync(");
+    expect(playAt).toBeGreaterThan(-1);
+    expect(seekAt).toBeGreaterThan(-1);
+    expect(playAt).toBeLessThan(seekAt);
+  });
 });
