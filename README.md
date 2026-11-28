@@ -15,10 +15,10 @@
 >   | 入口 | 内容 |
 >   |---|---|
 >   | [📦 全部版本 / All Releases](../../releases) | 所有正式版与测试版都在这页 |
->   | [电视端最新正式版 tv-v3.0.9](../../releases/tag/tv-v3.0.9) | `OrionTV-TV-3.0.9-armeabi-v7a.apk`（播放卡死 / 切线路丢进度 / 坏线路自动换） |
->   | [手机端最新正式版 phone-v2.1.2](../../releases/tag/phone-v2.1.2) | `OrionTV-Phone-2.1.2-arm64-v8a.apk`（同上 + 恢复设置页的用户管理入口） |
+>   | [电视端最新正式版 tv-v3.0.10](../../releases/tag/tv-v3.0.10) | `OrionTV-TV-3.0.10-armeabi-v7a.apk`（窄屏盒子集数口径 / 记录越界兜底 / `[DEVICE]` 日志） |
+>   | [手机端最新正式版 phone-v2.1.3](../../releases/tag/phone-v2.1.3) | `OrionTV-Phone-2.1.3-arm64-v8a.apk`（继续观看卡片集数不再多一集 + 记录兜底） |
 >
-> ⚠️ 仓库首页右侧的 **Releases** 小卡片只显示一个 `Latest`（当前是手机端 v2.1.2），
+> ⚠️ 仓库首页右侧的 **Releases** 小卡片只显示一个 `Latest`（当前是手机端 v2.1.3），
 > 电视端不在那里，要点上面的「全部版本」。
 > 发测试版时同样只出现在「全部版本」里，带灰色 `Pre-release` 标记，不计入 `Latest`。
 >
@@ -35,15 +35,15 @@
 
 | 端 | 版本号规则 | 当前正式版 | 当前测试版 | versionCode | Release tag |
 |---|---|---|---|---|---|
-| 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.1.2` | 无（2.1.2-test.1 已转正） | 2112 | `phone-v2.1.2` |
-| 电视 | **主版本号取奇数**（3.x、5.x、7.x…） | `3.0.9` | 无（3.0.9-test.1 已转正） | 3015 | `tv-v3.0.9` |
+| 手机 | **主版本号取偶数**（2.x、4.x、6.x…） | `2.1.3` | 无（2.1.3-test.1 已转正） | 2114 | `phone-v2.1.3` |
+| 电视 | **主版本号取奇数**（3.x、5.x、7.x…） | `3.0.10` | 无（3.0.10-test.1 已转正） | 3017 | `tv-v3.0.10` |
 
 > 测试版用 `x.y.z-test.n` 命名，Release 勾选 **Pre-release**，不计入 `Latest`，
 > 只有主动打开对应 tag 才能装到；测试通过后把同一份代码改成正式版本号再发一次。
 >
 > **versionCode 必须比在测的测试包大**，否则测试机装不上正式版：
-> 手机 2.1.2 取 **2112**（在测的 `2.1.2-test.1` 是 2111），
-> 电视 3.0.9 取 **3015**（在测的 `3.0.9-test.1` 是 3014）。
+> 手机 2.1.3 取 **2114**（在测的 `2.1.3-test.1` 是 2113），
+> 电视 3.0.10 取 **3017**（在测的 `3.0.10-test.1` 是 3016）。
 > 同理，测试版修 bug 重发时也要递增 —— `2.1.1-test.1`（2108）因缺原生库闪退，
 > 重发的 `test.2` 用 2109 才能覆盖已装的坏包。
 
@@ -64,12 +64,13 @@
 
 ## 📱 双端说明
 
-同一套代码会在运行时识别设备形态，自动切换界面与更新渠道：
+界面形态在运行时按屏幕宽度识别（`Platform.isTV` 或宽 ≥1024dp 判为电视、≥768dp 判为平板），
+**更新渠道则由安装包固化**（`BUILD_CHANNEL`），装错包不会拉错架构的安装包：
 
 | 端 | 架构 | 安装包 | 界面 | 更新渠道 | 当前版本 |
 |---|---|---|---|---|---|
-| 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` | `3.0.9` |
-| 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` | `2.1.2` |
+| 电视 | armeabi-v7a（32 位） | `OrionTV-TV-*` | 遥控器焦点导航 | `tv` | `3.0.10` |
+| 手机 | arm64-v8a（64 位） | `OrionTV-Phone-*` | 底部标签栏 + 响应式头部 | `phone` | `2.1.3` |
 
 > ⚠️ **打手机包必须显式指定 ABI**：`gradle.properties` 里的 `reactNativeArchitectures`
 > 默认是 `armeabi-v7a`（电视端用），`app/build.gradle` 的 `abiFilters` 只管 app 自己。
@@ -106,32 +107,32 @@
 
 | 包类型 | 读取的清单 | 内容 |
 |---|---|---|
-| 正式包（`2.1.2`、`3.0.9`） | [`version.json`](./version.json) | 只放正式版，测试用户不会被打扰 |
-| 测试包（如 `2.1.2-test.1`） | [`version-test.json`](./version-test.json) | 测试通道；转正时也靠它把正式包推给测试机 |
+| 正式包（`2.1.3`、`3.0.10`） | [`version.json`](./version.json) | 只放正式版，测试用户不会被打扰 |
+| 测试包（如 `2.1.3-test.1`） | [`version-test.json`](./version-test.json) | 测试通道；转正时也靠它把正式包推给测试机 |
 
 两份清单结构完全一样，都**只比较自己渠道那一段**：
 
 ```json
 {
-  "version": "3.0.9",
+  "version": "3.0.10",
   "notes": "顶层字段仅作旧客户端兜底",
   "channels": {
     "tv": {
-      "version": "3.0.9",
-      "versionCode": 3015,
-      "size": 21590658,
-      "md5": "d5d1082af6f084ee37d11af9cda0f0c9",
+      "version": "3.0.10",
+      "versionCode": 3017,
+      "size": 21592075,
+      "md5": "32fb1a3ad8a2f7dca1f1a3522c1bc771",
       "notes": "电视端更新说明（手机端看不到）",
-      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.9/OrionTV-TV-3.0.9-armeabi-v7a.apk",
+      "url": "https://github.com/1240882294/orionTV/releases/download/tv-v3.0.10/OrionTV-TV-3.0.10-armeabi-v7a.apk",
       "mirrors": ["https://gh-proxy.com/https://github.com/..."]
     },
     "phone": {
-      "version": "2.1.2",
-      "versionCode": 2112,
-      "size": 26795952,
-      "md5": "7a0d7bd2...",
+      "version": "2.1.3",
+      "versionCode": 2114,
+      "size": 26795780,
+      "md5": "f3180b82b1d960b618ce86f46f254211",
       "notes": "手机端更新说明（电视端看不到）",
-      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.2/OrionTV-Phone-2.1.2-arm64-v8a.apk",
+      "url": "https://github.com/1240882294/orionTV/releases/download/phone-v2.1.3/OrionTV-Phone-2.1.3-arm64-v8a.apk",
       "mirrors": ["https://gh-proxy.com/https://github.com/..."]
     }
   }
@@ -150,13 +151,13 @@
 ```jsonc
 // version-test.json（转正后）
 "phone": {
-  "version": "2.1.2",        // 正式版号，不带 -test
-  "versionCode": 2112,       // 必须大于在测的 2111
-  "url": ".../download/phone-v2.1.2/OrionTV-Phone-2.1.2-arm64-v8a.apk"
+  "version": "2.1.3",        // 正式版号，不带 -test
+  "versionCode": 2114,       // 必须大于在测的 2113
+  "url": ".../download/phone-v2.1.3/OrionTV-Phone-2.1.3-arm64-v8a.apk"
 }
 ```
 
-`compareVersions` 里「同号段内正式版 > 预发布版」，所以 `2.1.2` 判定大于 `2.1.2-test.1`，
+`compareVersions` 里「同号段内正式版 > 预发布版」，所以 `2.1.3` 判定大于 `2.1.3-test.1`，
 测试机检查更新就会看到提示，下载的是正式包。装上之后 `IS_TEST_BUILD` 变 false，
 改读 `version.json`，后续测试版不再推给这台机器。
 
